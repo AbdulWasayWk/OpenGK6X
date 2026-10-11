@@ -1,6 +1,7 @@
 # GK6X protocol (Skyloong GK104 Pro)
 
-Status legend: **✔ verified** on the user's keyboard · **ref** from prior art, not yet verified here ·
+Status legend: **✔ verified** on the user's keyboard · **✔ in code** read in the official app (GK6+ 8.0.7,
+`vendor-app/asar/src`) but not yet seen on the wire · **ref** from prior art, not yet verified here ·
 **?** unknown. Sources: pixeltris/GK6X (MIT, C#, archived 2026-03) and OpenRGB `SkyloongController`
 (GPL-2.0-or-later). Both are cloned in `reference/` (gitignored). The official app (`vendor-app/`) and
 captures will replace "ref" with "✔" as we go.
@@ -43,7 +44,7 @@ for a reply.
 
 ## Handshake / info (`0x01`) ✔
 
-The official app (GK6+ 8.0.1, `src/libs/cmd.js`, `src/drivers/cor-m3-mk.js`) probes with `01 01`, then `01 02`, then
+The official app (GK6+ 8.0.7, `src/libs/cmd.js`, `src/drivers/cor-m3-mk.js`) probes with `01 01`, then `01 02`, then
 `01 08`, and rejects the keyboard unless the firmware ID is in its `modellist.json`.
 
 | Request | App name | Reply payload (from byte 8) | User's keyboard |
@@ -54,10 +55,9 @@ The official app (GK6+ 8.0.1, `src/libs/cmd.js`, `src/drivers/cor-m3-mk.js`) pro
 | `01 09` | MATRIX | u8 key columns, u8 key rows | 16 × 8 (key tables = 16·8·4 = 512 B) |
 
 Model 656802056 + FWID `0x84223311` = "104RGB" in the vendor data shipped with pixeltris (updated to the Windows app
-V6.0.0.76 on 2026-03-05). **GK6+ 8.0.1 doesn't list it** (it dropped models 656802039–058); Epomaker lists 8.0.7
-for the GK104 PRO.
+V6.0.0.76) and in **GK6+ 8.0.7** (same keys; new images/positions). GK6+ 8.0.1 didn't list it.
 
-## Opcodes (app 8.0.1 `cmd.js` ✔ in code; on hardware only `01` so far)
+## Opcodes (`cmd.js`, ✔ in code; on hardware only `01` so far)
 
 Write commands put a chunk address and length in the 4 header bytes (u32 LE at byte 2):
 **A** = `(len << 16) + addr` → bytes 2..3 addr, byte 4 len; **B** = `(len << 24) + addr` → bytes 2..4 addr, byte 5 len.
@@ -87,15 +87,79 @@ Chunks are ≤ 56 bytes; each one is acknowledged (reply byte 1 is read as the a
 | `31` | mode | writeFnData (A) | Fn-layer driver values |
 | `41` | 01 | WRITE_MAC_VID ("changePid") | rewrites the keyboard's USB identity: **never send** |
 
-Offline profile write (app `libs/profile.js`): for each type, `21 <mode> <type>` then the data in chunks, then
-`0B <mode>` to switch to it. Detail to be documented from `profile.js`.
+## Profiles ("modes") ✔ in code
 
-Online mode (`libs/driver.js setOnlineMode`): Ping, `0B 05`, Ping every 2 s, `15 03 01`; the PC then handles key
-reports (macros, app launch, per-key lighting) and renders lighting effects itself (`cmleplayer.js`) via `1A`.
+`0B <mode>` selects one; the keyboard reports `0B <mode>` when the user switches with Fn keys.
+
+| Mode | App `ModeIndex` | Contents the app writes |
+|---|---|---|
+| 1 | standard | **lighting effects list only** (`DriverLE`, 5 by default: spectrum cycle, Macice Blue, RGB gradient, windmill, rainbow wave). The app never writes the standard keymap |
+| 2, 3, 4 | offline profiles 1–3 | keys, Fn keys, macros, main lighting effect (`ModeLE`), per-key press lighting (`KeyLE`), optional per-key colors (`LEData`) |
+| 5 | online (`ModeIndex` 0) | nothing stored: the PC drives keys/lighting while the app runs (`16`, `17`, `1A`, `15`) |
+
+Per-model defaults: `resources/device/<ModelID>/data/profile_offline_{std,1,2,3}.json`, `profile_online_1.json`.
+
+## Offline profile write (`libs/profile.js writeDeviceConfig`) ✔ in code
+
+All writes go to `mode` (2–4, or 1 for the effects list). Chunks ≤ 56 B; the app sleeps 1 ms between chunks on
+firmware IDs starting `83`/`84` (ours), 10 ms otherwise. Order:
+
+1. `01 09` (matrix → table size cols × rows × 4 = 512 B)
+2. keys: `21 m 01`, then `22 m` chunks (A) of the key table
+3. Fn keys: `21 m 07`, then `31 m` chunks (A)
+4. per-key colors (only if the profile has `LEData`): `21 m 03`, then `24 m` chunks (A) of 176 × `R G B 100`
+5. macros: `21 m 04`, then `25 m` chunks (A) of count × 512 B
+6. press-lighting index: `21 m 05`, then `26 m` chunks (A) of 128 B
+7. lighting data: `21 m 06`, then `27 m` chunks (**B**)
+8. `0B m` if m ≠ 1
+
+### Key table (`22` / `31`)
+128 × u32 LE "driver value", indexed by the key's matrix index (`KeySet[].Index` = `LogicCode` in `keymap.js`);
+unset entries `FFFFFFFF`. Macro keys: `0A0100xx` with xx = macro slot.
+
+| Driver value | Meaning |
+|---|---|
+| `0x0200KKMM` | key: HID usage KK + modifier bits MM (01 LCtrl, 02 LShift, 04 LAlt, 08 LWin, 10 RCtrl, 20 RShift, 40 RAlt, 80 RWin). `0x02000000` = disabled. E.g. `0x02000601` = Ctrl+C |
+| `0x0101000b` | mouse button bit b: 01 left, 02 right, 04 middle, 08 back, 10 forward |
+| `0x0300uuuu` | consumer (media) usage, e.g. `00CD` play/pause, `00E9` volume up |
+| `0x0901001x` | toggle custom (10) / key (11) light effect |
+| `0x0902000x`, `0x0903000x`, `0x0906000x` | brightness up/down, effect speed fast/slow, backlight switch/pause |
+| `0x0A070001..4` | switch to standard / offline 1–3 |
+| `0x0A0C00MM` | Space with hold-modifier MM ("LCtrl[LongPress(Space)]") |
+| `0x0A0100xx` | macro xx |
+| `0x0C000002` | system sleep |
+
+Full list (207 entries, with UI names): app `ui/js/9271.*.js` → `vendor-app/decoded/keyfuncs.json`.
+
+### Macros (`25`)
+512 B per macro, slots in order of first use: header `u16 0x55AA, u16 CRC16(actions), u8 count, u8 slot,
+u8 stop mode, u8 repeats`, then `count` × 4 B actions `[data0, data1, status, type]`:
+type 1 key (data0 = HID usage or 0 with data1 = modifier bit; status 1 down, 2 up), type 2 mouse
+(data0 1 left / 2 right; status 1 down, 2 up), type 3 delay (ms = data0 + 256·data1). The app appends `Delay 5`.
+Max (512 − 8) / 4 = 126 actions. Macro text format (`.cms`): `[General] Name, ScriptID, Repeats, StopMode` +
+`[Script]` lines `KeyDown "Q"`, `Delay 137`, … Note: Fn-layer macros index `pMacroIndex[256 + i]` past the
+256-byte index table in the app (looks broken there).
+
+### Press-lighting index (`26`)
+128 B by matrix index: `FF` = none, else the number of an effect in the lighting data (0 = the profile's main effect).
+
+### Lighting data (`27`)
+Up to 128 KiB − 512. Bytes 0..511: one 16 B header per effect `u32 frame address, u32 frame count, u32 logic
+address, u32 logic count` (rest `FF`); effect data from 512 on:
+- frames: 26 B each, `u16 3, u16 22, 22 B bitmap` of lit LEDs (176 LED indexes); `Count` in the effect file repeats a frame
+- logic ("LEConfigs"): 32 B each, `u8 type, u8 32, 22 B bitmap, R G B 0, u16 data0, u16 data1`.
+  Type 0 static color; 1 color cycle (data0 = 360 / Count); 2 breathing (data0 = 100 / Count, data1 = StayCount)
+- a profile without an effect file but with `ModeLE.LEData` gets one static frame: `u16 0, u16 704, 176 × R G B 100`
+
+Effect files (`.le`, CMF type LIGHT) are JSON: `{GUID, Name, Frames: [{Count, Data: {led: "0xRRGGBB"}}],
+LEConfigs: [{Type, Count, StayCount?, Color, Keys: [led…]}]}`. LED indexes are `LocationCode`s (0..175).
+
+## CMF files (`.cmf` profiles, `.le`, `.cms`) ✔ decoded
+32 B header (magic `0x434D4631`, CRCs, time, size, type, 8 B name) + body XORed with a CRC-16 key stream.
+`tools/re/cmf_decode.py`. The app keeps user data in `Account/<id>/Devices/<ModelID>/<GUID>.cmf`, `Account/0/LE/`.
 
 ## Open questions
 
-- Is anything stored in the keyboard readable (keymap, lighting, macros)? pixeltris only writes. If not, the app
-  must keep its own copy of what it wrote.
-- Built-in lighting: `17 01` (online) and `24` mode-LE data (offline); formats to be read from `profile.js`.
-- Config over the 2.4 GHz dongle and over Bluetooth.
+- `17 01` LE config (model 240/241, …): used only in online mode; `hasModeLe` is false for our model.
+- Readback: the app never reads profiles back from the keyboard, so OpenGK6X must keep its own copy.
+- Config over the 2.4 GHz dongle and over Bluetooth: the official app (8.0.7) only drives the wired `0907`.

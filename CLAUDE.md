@@ -36,10 +36,15 @@ RGB controller. Reuse its structure, conventions and tooling; this project follo
 - **2.4 GHz dongle (probably this keyboard's): USB `1ea7:0067`** "Nordic Semiconductor nRF52 USB Product",
   bus 1 port `1-4`. if0 keyboard, if1 mouse, if2 system/consumer, **if3 = same config interface** as wired if1.
   Access: `packaging/70-opengk6x.rules`, installed by the user 2026-10-11 (`/etc/udev/rules.d/`); grants if3 only.
-- **Vendor app in `vendor-app/`**: `GK6X Setup 8.0.1.exe` (sha256 `a1303205…8e00e68`, NSIS by electron-builder) →
-  `nsis/`, `app/` (Electron "GK6+" 8.0.1, 2023-08-31) → `asar/` (`tools/re/asar_extract.py`). Plain readable JS:
-  `asar/src/libs/{cmd,driver,profile,device,cmlemanager,cmleplayer,macro,keymap}.js`; Vue UI bundle in `asar/ui/`;
-  model data in `asar/resources/device/<ModelID>/`. **It doesn't support the user's keyboard** (see findings).
+- **Vendor app in `vendor-app/`**: `GK6X-Setup-8.0.7.zip` (Epomaker download, sha256 `4cd43ac9…2d5c0f`) →
+  `GK6X Setup 8.0.7.exe` (NSIS/electron-builder, 2024-12-28) → `nsis/`, `app/` (Electron "GK6+" 8.0.7) → `asar/`
+  (`tools/re/asar_extract.py`). Plain readable JS: `asar/src/libs/{cmd,driver,profile,device,cmlemanager,
+  cmleplayer,macro,keymap,cmfcodec}.js`; Vue UI bundle `asar/ui/js/` (key functions: `9271.*.js`; LE lists per
+  category: `1785.*.js`); model data `asar/resources/device/656802056/`; effect/macro library
+  `asar/resources/res/data/{le,macro}`. Decoded copies in `vendor-app/decoded/` (`tools/re/cmf_decode.py`;
+  `keyfuncs.json` via a node `vm` dump of the UI chunk). The user deleted 8.0.1 (it didn't support this keyboard).
+- **Keyboard shortcuts** (model `config.json` UserManual): BT/USB/2.4G switch, Win/Mac switch, Fn+−/+ cycle the
+  standard effects, Fn+↑/↓ brightness, Fn+←/→ speed, **Fn+Esc+Q = clear all config (factory reset)**.
 - Windows VM `win10` (libvirt, `qemu:///system`, user is in `libvirt`), shut off. Used for OpenNollie captures.
   ⚠ Passing the keyboard through to the VM takes it away from the host while attached (the mouse stays). The
   host still sees the traffic: `tools/setup-dev.sh usbmon` (once per boot, sudo), then
@@ -65,11 +70,17 @@ lighting `27`, press lighting `26`, reset `21`, driver layer `15`–`1A`) is fro
 
 ## Feature catalog (official app → OpenGK6X)
 
-To fill in from the official app (EXE pending from the user) and a capture of the user using every page.
+From GK6+ 8.0.7 (`config.json` FuncTable: Configure keyboard, LE library, Macro library). Status: `[ ]` for all.
 
-| App page | Features | Status |
+| App area | Features | Status |
 |---|---|---|
-| (pending) | | |
+| Device | detect (VER/DEVICE_ID/MODEL_ID), firmware version, picture of the keyboard (`img/device_*.png`, `keymap.js` positions) | [~] `info` |
+| Profiles | standard (effects list only) + offline profiles 1–3 stored in the keyboard; switch with `0B` or Fn keys; online (PC-driven) profiles; profile import/export (`.cmf`) | [ ] |
+| Key mapping | per key and per Fn key: any key + modifiers, combos (Ctrl+C…), disable, mouse buttons, media keys, lighting controls, profile switching, Space dual-role (hold = modifier), sleep, macros; online-only: open app/URL/file | [ ] |
+| Lighting | effect library (183 `.le`, 6 shown to all models + category 840 for ours), main effect per profile, per-key press lighting, per-key static colors, effect editor (frames + color logic: static / cycle / breathing), standard-mode effect list (Fn+−/+) | [ ] |
+| Macros | library (148 presets), recorder/editor (key/mouse down-up, delays), repeat count, stop mode, assign to keys | [ ] |
+| Online mode | live per-key lighting effects rendered by the PC, macros/app launch on key press, game profiles (`Game`, `Application`) | [ ] (decide if wanted) |
+| Firmware update | (none in 8.0.7: `firmware.js` is empty) | N/A |
 
 ## Architecture (proposed; same stack as OpenNollie)
 
@@ -100,12 +111,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ### Phase 1: Reverse engineering
 - [x] Official app EXE from the user (GK6+ 8.0.1) unpacked: Electron, plain JS, `node-hid`
-- [~] Per-model data for 656802056: **not in 8.0.1**; pixeltris has it (V6.0.0.76 data). Get 8.0.7 (Epomaker lists
-      it for the GK104 PRO) and compare
-- [~] Protocol code: `cmd.js` command table read and recorded in `docs/PROTOCOL.md` (matches pixeltris); next:
-      `profile.js` (offline profile writer), `cmlemanager.js`/`cmleplayer.js` (lighting), `macro.js`, `cmfcodec.js`
+- [x] 8.0.7 (from Epomaker, via the user) supports model 656802056; unpacked; model data + library decoded
+- [x] Protocol from code: command table, profiles/modes, offline profile write sequence, key/Fn tables + driver
+      values, macro format, lighting data format, CMF files → `docs/PROTOCOL.md`
+- [ ] Still to read: `cmleplayer.js`/`cmlemanager.js` (online lighting playback), `macro.js` (recorder), UI pages
+      for the remaining options (LE category filter, key-function menus)
 - [ ] Capture: the official app in the VM (or wine) while the user goes through every page → `captures/`
-- [ ] Fill in the *Feature catalog*; record the protocol in `docs/PROTOCOL.md`
+- [x] *Feature catalog* filled in from the app
 - [ ] Wireless: does the dongle answer the handshake? Bluetooth: is there a config channel at all?
 
 ### Phase 2: Protocol library
@@ -118,14 +130,21 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [ ] CLI, then a PySide6 GUI with a picture of the keyboard; packaging (PKGBUILD, desktop file)
 
 ## Open questions
-- Does 8.0.7 have the GK104 Pro under model 656802056 (or another ID), and does it support the dongle?
-- Can the keyboard report what's stored on it (keymaps, lighting, macros), or only accept writes?
+- Does the keyboard check the packet CRC? (OpenRGB sends a different one and works.)
+- What does the firmware do with a profile write if the keyboard is in that profile at the time?
+- Can the keyboard report what's stored on it? The official app never reads profiles back (keeps its own copy).
 - Is the `1ea7:0067` dongle this keyboard's receiver? (Same vendor ID and config interface; likely.)
 - Can the per-model data be shipped? It's the vendor's (proprietary). Options: read it from the user's copy of the
   official app at runtime (like OpenNollie's layout presets), or write our own GK104 Pro layout.
 
 ## Findings log
 <!-- Newest first. Format: YYYY-MM-DD: finding (source: capture/file/test) -->
+- 2026-10-11: **GK6+ 8.0.7 supports this keyboard** (model 656802056 / FWID `0x84223311`, "104RGB"); keymap.js has
+  the same 124 keys as pixeltris's copy. Same command set as 8.0.1; still wired-only (`0907`), so **the official app
+  can't configure over the dongle or Bluetooth** either. The app writes offline profiles 1–3 (modes 2–4) whole
+  (clear + chunks per data type) and **never writes the standard layer's keys** (mode 1 gets only its effects list).
+  Library: 183 effects, 148 macros (CMF-obfuscated, decoded). Key functions: 207 driver values. Factory reset on the
+  keyboard: Fn+Esc+Q. (source: vendor-app/asar 8.0.7)
 - 2026-10-11: **The user's EXE (GK6+ 8.0.1) can't drive this keyboard**: its driver rejects any firmware ID that isn't
   in `resources/device/modellist.json` ("invalid device"), and `0x84223311` / model 656802056 aren't there (8.0.1
   dropped 656802039–058 vs the Windows-app V6 data). It also only knows the wired PID `0907` (+ bootloader `0905`), no
@@ -159,9 +178,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - Keep this file current: update status, findings and decisions in the same session the work happens.
 - Hardware writes follow the official app's exact packets (code + capture). Never fuzz unknown commands.
   Read-only queries first; verify each write by reading it back where the firmware allows it.
-- **This is the user's only keyboard.** A bad base-layer keymap can leave them unable to type. Test key writes on
-  layers 1–3 (or the driver layer) before the base layer, know the factory-reset path first (official manual /
-  app), and keep a way to restore defaults from the CLI with the mouse.
+- **This is the user's only keyboard.** A bad keymap can leave them unable to type. Like the official app, write
+  keys only to offline profiles 1–3 (modes 2–4), never the standard layer (mode 1). Switch back to standard with
+  `0B 01` from the CLI (mouse-only) or the keyboard; last resort **Fn+Esc+Q** (factory reset).
 - Never send firmware-update / bootloader commands, `03` restart variants that enter boot modes, or `41 01`
   (rewrites the keyboard's USB VID/PID).
 - The vendor app and its data are proprietary: keep them out of git; our code is written fresh from the documented
