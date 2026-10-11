@@ -68,8 +68,8 @@ class Keyboard:
         raise DeviceError(f"no reply to {op:02x} {sub:02x}")
 
     def info(self) -> dict:
-        buffers = p.parse_buffers(self.request(p.info_request(p.INFO_BUFFERS)))
         fw = p.parse_firmware(self.request(p.info_request(p.INFO_FIRMWARE)))
         model = p.parse_model(self.request(p.info_request(p.INFO_MODEL)))
+        matrix = p.parse_matrix(self.request(p.info_request(p.INFO_MATRIX)))
         return {"link": self.found.link, "path": self.found.path.decode(), "model_id": model,
-                "firmware_id": fw.id, "firmware_version": fw.version, "buffers": buffers}
+                "firmware_id": fw.id, "firmware_version": fw.version, "matrix": matrix}

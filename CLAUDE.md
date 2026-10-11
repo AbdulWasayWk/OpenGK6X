@@ -29,13 +29,17 @@ RGB controller. Reuse its structure, conventions and tooling; this project follo
 - **Keyboard, wired: USB `1ea7:0907`** "SEMITE USB-HID Gaming Keyboar", bcdDevice 3.00, bus 3 port `3-2`.
   - if0 boot keyboard · **if1 = config interface** (vendor page `0xFF00`, 64 B IN/OUT, no report IDs) ·
     if2 = system/consumer/NKRO/mouse reports. Pick if1 by `usage_page == 0xFF00`.
-  - **Model ID 656802056**, firmware ID `0x84223311`, version bytes 5.118 (read 2026-10-11 with `opengk6x info`).
-    In the 2021 vendor data this model is called "104RGB".
+  - **Model ID 656802056**, firmware ID `0x84223311`, firmware **v5.118**, key matrix 16 × 8 (read 2026-10-11 with
+    `opengk6x info`). In the vendor's Windows-app data (pixeltris, V6.0.0.76) this model is called "104RGB".
   - Access: OpenRGB's `60-openrgb.rules` already grants `uaccess` for `1ea7:0907` (all interfaces). OpenRGB has a
     GK104 Pro driver (direct per-key lighting) but **isn't running**; if it ever runs it will grab the keyboard.
 - **2.4 GHz dongle (probably this keyboard's): USB `1ea7:0067`** "Nordic Semiconductor nRF52 USB Product",
   bus 1 port `1-4`. if0 keyboard, if1 mouse, if2 system/consumer, **if3 = same config interface** as wired if1.
   Access: `packaging/70-opengk6x.rules`, installed by the user 2026-10-11 (`/etc/udev/rules.d/`); grants if3 only.
+- **Vendor app in `vendor-app/`**: `GK6X Setup 8.0.1.exe` (sha256 `a1303205…8e00e68`, NSIS by electron-builder) →
+  `nsis/`, `app/` (Electron "GK6+" 8.0.1, 2023-08-31) → `asar/` (`tools/re/asar_extract.py`). Plain readable JS:
+  `asar/src/libs/{cmd,driver,profile,device,cmlemanager,cmleplayer,macro,keymap}.js`; Vue UI bundle in `asar/ui/`;
+  model data in `asar/resources/device/<ModelID>/`. **It doesn't support the user's keyboard** (see findings).
 - Windows VM `win10` (libvirt, `qemu:///system`, user is in `libvirt`), shut off. Used for OpenNollie captures.
   ⚠ Passing the keyboard through to the VM takes it away from the host while attached (the mouse stays). The
   host still sees the traffic: `tools/setup-dev.sh usbmon` (once per boot, sudo), then
@@ -95,10 +99,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Read-only handshake from Linux works: `python3 -m opengk6x info` (model 656802056, fw `0x84223311`)
 
 ### Phase 1: Reverse engineering
-- [ ] Get the official app EXE from the user → `vendor-app/`; identify the installer/app type and unpack it
-- [ ] Find the per-model data for 656802056 (layout, key list, driver values, lighting effects) and compare with
-      the 2021 copy in pixeltris
-- [ ] Find the protocol code (opcodes, framing, what each page sends); note anything new vs pixeltris
+- [x] Official app EXE from the user (GK6+ 8.0.1) unpacked: Electron, plain JS, `node-hid`
+- [~] Per-model data for 656802056: **not in 8.0.1**; pixeltris has it (V6.0.0.76 data). Get 8.0.7 (Epomaker lists
+      it for the GK104 PRO) and compare
+- [~] Protocol code: `cmd.js` command table read and recorded in `docs/PROTOCOL.md` (matches pixeltris); next:
+      `profile.js` (offline profile writer), `cmlemanager.js`/`cmleplayer.js` (lighting), `macro.js`, `cmfcodec.js`
 - [ ] Capture: the official app in the VM (or wine) while the user goes through every page → `captures/`
 - [ ] Fill in the *Feature catalog*; record the protocol in `docs/PROTOCOL.md`
 - [ ] Wireless: does the dongle answer the handshake? Bluetooth: is there a config channel at all?
@@ -113,14 +118,24 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [ ] CLI, then a PySide6 GUI with a picture of the keyboard; packaging (PKGBUILD, desktop file)
 
 ## Open questions
+- Does 8.0.7 have the GK104 Pro under model 656802056 (or another ID), and does it support the dongle?
 - Can the keyboard report what's stored on it (keymaps, lighting, macros), or only accept writes?
 - Is the `1ea7:0067` dongle this keyboard's receiver? (Same vendor ID and config interface; likely.)
 - Can the per-model data be shipped? It's the vendor's (proprietary). Options: read it from the user's copy of the
   official app at runtime (like OpenNollie's layout presets), or write our own GK104 Pro layout.
-- How does the official app show firmware version 5.118 (`76 05`)?
 
 ## Findings log
 <!-- Newest first. Format: YYYY-MM-DD: finding (source: capture/file/test) -->
+- 2026-10-11: **The user's EXE (GK6+ 8.0.1) can't drive this keyboard**: its driver rejects any firmware ID that isn't
+  in `resources/device/modellist.json` ("invalid device"), and `0x84223311` / model 656802056 aren't there (8.0.1
+  dropped 656802039–058 vs the Windows-app V6 data). It also only knows the wired PID `0907` (+ bootloader `0905`), no
+  dongle. Its `Env.json` points at jikedingzhi driverID=90, which pixeltris lists as the Mac download. Epomaker's
+  download page lists **GK6X_Setup_8.0.7.zip** (144 MB, 2025-07-07) for the GK104 PRO. (source: vendor-app/asar,
+  epomaker.com/blogs/software/skyloong-driver)
+- 2026-10-11: App protocol (`cmd.js`) = pixeltris's, with names: `01 09` is the **key matrix** (16 × 8 here; we
+  had called it buffer sizes), `01 02` a 48-bit device ID, firmware version shown `v<hi>.<lo>` = v5.118. New:
+  `17 01` built-in LE config, `15 01..04` online key/mouse events + key reports, `16` online key table, `24` mode-LE,
+  and two to never send: `41 01` (rewrites USB VID/PID) and boot modes (`1ea7:0905` "CDBoot"). (source: vendor-app)
 - 2026-10-11: **The dongle (`1ea7:0067` if3) accepts writes but doesn't answer the handshake** (no report at all
   within 1 s) while the keyboard is in wired mode. Retest with the keyboard switched to 2.4 GHz. The udev rule
   works: on the dongle only if3 is user-accessible. (source: hidapi on host)
@@ -147,6 +162,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - **This is the user's only keyboard.** A bad base-layer keymap can leave them unable to type. Test key writes on
   layers 1–3 (or the driver layer) before the base layer, know the factory-reset path first (official manual /
   app), and keep a way to restore defaults from the CLI with the mouse.
-- Never send firmware-update / bootloader commands, or `03` restart variants that enter boot modes.
+- Never send firmware-update / bootloader commands, `03` restart variants that enter boot modes, or `41 01`
+  (rewrites the keyboard's USB VID/PID).
 - The vendor app and its data are proprietary: keep them out of git; our code is written fresh from the documented
   protocol, not copied.

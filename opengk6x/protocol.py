@@ -26,8 +26,9 @@ OP_PING = 0x0C
 
 # OP_INFO sub-commands (byte 1)
 INFO_FIRMWARE = 0x01
+INFO_DEVICE_ID = 0x02
 INFO_MODEL = 0x08
-INFO_BUFFERS = 0x09
+INFO_MATRIX = 0x09
 
 RESULT_OK = 1
 
@@ -80,17 +81,15 @@ def info_request(sub: int) -> bytes:
 @dataclass(frozen=True)
 class Firmware:
     id: int          # e.g. 0x84223311; matches "FWID" in the vendor app's model list
-    minor: int
-    major: int
+    version_raw: int # u16; the app shows it as v<high byte>.<low byte>
 
     @property
     def version(self) -> str:
-        return f"{self.major}.{self.minor}"
+        return f"v{self.version_raw >> 8}.{self.version_raw & 0xFF}"
 
 
 def parse_firmware(report: bytes) -> Firmware:
-    fw_id, minor, major = struct.unpack_from("<IBB", report, PAYLOAD_OFFSET)
-    return Firmware(fw_id, minor, major)
+    return Firmware(*struct.unpack_from("<IH", report, PAYLOAD_OFFSET))
 
 
 def parse_model(report: bytes) -> int:
@@ -101,6 +100,6 @@ def parse_model(report: bytes) -> int:
     return model
 
 
-def parse_buffers(report: bytes) -> tuple[int, int]:
-    """Two buffer-size bytes the vendor app uses to size key/light data (meaning not fully known)."""
+def parse_matrix(report: bytes) -> tuple[int, int]:
+    """Key matrix (columns, rows). Key tables have columns × rows entries of 4 bytes."""
     return report[PAYLOAD_OFFSET], report[PAYLOAD_OFFSET + 1]

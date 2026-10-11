@@ -23,7 +23,7 @@ def cmd_info(args):
         print(f"  model id          {i['model_id']}")
         print(f"  firmware id       0x{i['firmware_id']:08x}")
         print(f"  firmware version  {i['firmware_version']}")
-        print(f"  buffer sizes      {i['buffers'][0]}, {i['buffers'][1]}")
+        print(f"  key matrix        {i['matrix'][0]} columns × {i['matrix'][1]} rows")
     return status
 
 

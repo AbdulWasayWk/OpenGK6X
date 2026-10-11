@@ -43,45 +43,59 @@ for a reply.
 
 ## Handshake / info (`0x01`) ✔
 
-| Request | Reply payload (from byte 8) | User's keyboard |
-|---|---|---|
-| `01 09` | 2 bytes: buffer sizes A, B | 16, 8 |
-| `01 01` | u32 firmware ID, u8 minor, u8 major | `0x84223311`, 5.118 |
-| `01 08` | u32 model ID, u16 `0xFFFF`, u16 CRC16 of the previous 6 bytes | **656802056** |
-| `01 02` | ref: unknown (always -1) | not sent |
+The official app (GK6+ 8.0.1, `src/libs/cmd.js`, `src/drivers/cor-m3-mk.js`) probes with `01 01`, then `01 02`, then
+`01 08`, and rejects the keyboard unless the firmware ID is in its `modellist.json`.
 
-Model 656802056 + FWID `0x84223311` = "104RGB" in the 2021 vendor data shipped with pixeltris
-(`Data/device/modellist.json`, `Data/device/656802056/`). The official app keys its per-model data on the model ID.
+| Request | App name | Reply payload (from byte 8) | User's keyboard |
+|---|---|---|---|
+| `01 01` | VER | u32 firmware ID, u16 version (shown `v<hi>.<lo>`) | `0x84223311`, **v5.118** |
+| `01 02` | DEVICE_ID | 6 bytes, little-endian 48-bit ID | not sent yet |
+| `01 08` | MODEL_ID | u32 model ID, u16 `0xFFFF`, u16 CRC16 of the previous 6 bytes | **656802056** |
+| `01 09` | MATRIX | u8 key columns, u8 key rows | 16 × 8 (key tables = 16·8·4 = 512 B) |
 
-## Opcodes (ref, pixeltris)
+Model 656802056 + FWID `0x84223311` = "104RGB" in the vendor data shipped with pixeltris (updated to the Windows app
+V6.0.0.76 on 2026-03-05). **GK6+ 8.0.1 doesn't list it** (it dropped models 656802039–058); Epomaker lists 8.0.7
+for the GK104 PRO.
 
-| Op | Name | Notes |
-|---|---|---|
-| `01` | Info | above |
-| `03` | Restart keyboard | can reboot into special modes ("CDBoot"); **never send boot-mode variants** |
-| `0B` | Set layer | sub = layer: 1 base, 2–4 layers 1–3, 5 driver ("online"). OpenRGB sends `0B 05` on connect and `0B 04` on disconnect (**?** why 4) |
-| `0C` | Ping / keep-alive | app pings every ~300 ms while connected; OpenRGB sends one on connect |
-| `15` | Driver macro | driver layer only |
-| `16` | Driver layer: set key values | sub 1 keys, 2 Fn keys, 3 press-lighting |
-| `17` | Driver layer: config | |
-| `18` | Key callback (keyboard → PC) | driver layer |
-| `1A` | Driver layer: real-time lighting | sub 1 = data, 2 = show. Per-key `R G B brightness` × 132 (528 B); OpenRGB "Direct" mode |
-| `21` | Layer: reset data type | sub = layer, byte 2 = type: 1 keys, 3 LE data, 4 macros, 5 press-lighting, 6 lighting, 7 Fn keys |
-| `22` | Layer: set key values | u32 "driver value" per key (logic code order) |
-| `23`, `24` | ? | |
-| `25` | Layer: set macros | `AA 55` magic, CRC, actions (key, modifier, state, type, delay) |
-| `26` | Layer: set press-lighting effect | |
-| `27` | Layer: set lighting | static per-key colors or frame-based dynamic effects |
-| `31` | Layer: set Fn key values | |
+## Opcodes (app 8.0.1 `cmd.js` ✔ in code; on hardware only `01` so far)
 
-Key data: per-model `keymap.js` (key name, logic code, location code, position) and "driver values" (u32 per
-action) in the vendor data. Layers and Fn layers are written whole (reset type, then all values).
+Write commands put a chunk address and length in the 4 header bytes (u32 LE at byte 2):
+**A** = `(len << 16) + addr` → bytes 2..3 addr, byte 4 len; **B** = `(len << 24) + addr` → bytes 2..4 addr, byte 5 len.
+Chunks are ≤ 56 bytes; each one is acknowledged (reply byte 1 is read as the ack).
+
+| Op | Sub | App name | Notes |
+|---|---|---|---|
+| `01` | 01/02/08/09 | VER / DEVICE_ID / MODEL_ID / MATRIX | above |
+| `03` | | (restart, pixeltris) | can reboot into boot modes ("CDBoot", USB `1ea7:0905`): **never send** |
+| `0B` | mode | CHANGE_MODE | sub = 1 base, 2–4 profiles/layers 1–3, 5 online (driver). The keyboard also **sends** `0B <mode>` when the user switches on the keyboard; the app treats anything but 1 or 5 as "not driver-controlled" |
+| `0C` | 00 | Ping | online mode: every 2 s |
+| `15` | 01 | MouseEvent | online mode (PC-side macros) |
+| `15` | 02 | KeyEvent | online mode |
+| `15` | 03 | ToggleKeyReport | payload `01`/`00`: key reports on/off |
+| `15` | 04 | (keyboard → PC) | key report: bytes 8..23 = bitmap of pressed key indexes |
+| `16` | type | SetKeyTable (B) | online mode key table: type 1 = keys (u32 per matrix index, 512 B), 3 = "game light" keys (1 B per index, `0xFF` = none) |
+| `17` | 01 | setLEConfig | 9 B: LE model, sub-model, brightness, speed, direction, R/2, G/2, B/2, enable. App default 240, 1, 18, 3, 0, 0,0,0, 15 |
+| `18` | | (keyboard → PC) | macro report, ignored by the app |
+| `1A` | 01 | SetLEDefine (B) | online real-time lighting: 132 × `R G B 100` (528 B) in 56 B chunks |
+| `1A` | 02 | SaveLEDefine | show the frame |
+| `21` | mode | CleanData | byte 2 = data type: 1 keys, 3 mode-LE, 4 macros, 5 light keys, 6 light data, 7 Fn keys |
+| `22` | mode | writeKeyData (A) | u32 driver value per matrix index |
+| `24` | mode | writeModeLE (A) | built-in lighting config for the profile |
+| `25` | mode | writeMacro (A) | macros |
+| `26` | mode | writeLightKey (A) | key-press lighting key list |
+| `27` | mode | writeLightData (B) | lighting effect data |
+| `31` | mode | writeFnData (A) | Fn-layer driver values |
+| `41` | 01 | WRITE_MAC_VID ("changePid") | rewrites the keyboard's USB identity: **never send** |
+
+Offline profile write (app `libs/profile.js`): for each type, `21 <mode> <type>` then the data in chunks, then
+`0B <mode>` to switch to it. Detail to be documented from `profile.js`.
+
+Online mode (`libs/driver.js setOnlineMode`): Ping, `0B 05`, Ping every 2 s, `15 03 01`; the PC then handles key
+reports (macros, app launch, per-key lighting) and renders lighting effects itself (`cmleplayer.js`) via `1A`.
 
 ## Open questions
 
 - Is anything stored in the keyboard readable (keymap, lighting, macros)? pixeltris only writes. If not, the app
   must keep its own copy of what it wrote.
-- Built-in lighting modes (`ModeLE` / `LESet` in profile.json: model, sub-model, brightness, speed, direction, color):
-  which opcode sets them on this board?
+- Built-in lighting: `17 01` (online) and `24` mode-LE data (offline); formats to be read from `profile.js`.
 - Config over the 2.4 GHz dongle and over Bluetooth.
-- Firmware version format: shown as `5.118` here (major = byte 13, minor = byte 12); compare with the official app.
