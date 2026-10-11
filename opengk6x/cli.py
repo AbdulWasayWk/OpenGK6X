@@ -65,6 +65,9 @@ def cmd_info(args):
             with device.Keyboard(f) as kb:
                 i = kb.info()
         except device.DeviceError as e:
+            if f.pid == p.PID_DONGLE:
+                print(f"{f.link}: no answer (the keyboard is configured over its USB cable)")
+                continue
             print(f"{f.link}: {e}", file=sys.stderr)
             status = 1
             continue
