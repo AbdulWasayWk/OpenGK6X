@@ -16,6 +16,14 @@ SEARCH = [
 ]
 
 
+VARIANT_WORDS = ("VOL", "MUTE", "Vol", "Mute", "Left Space", "Right Space")
+
+
+def is_variant(key: dict) -> bool:
+    """Key-map entries for hardware variants (volume knob positions, split spacebar), not on every keyboard."""
+    return any(w in key["KeyName"] for w in VARIANT_WORDS)
+
+
 class VendorDataMissing(Exception):
     pass
 

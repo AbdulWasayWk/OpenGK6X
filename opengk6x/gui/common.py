@@ -9,14 +9,9 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QMessageBox, QWidget
 
 from .. import device, session
 from ..store import CONFIG, SLOT_MODES, Profile, Store
-from ..vendordata import VendorData, VendorDataMissing
+from ..vendordata import VendorData, VendorDataMissing, is_variant  # noqa: F401 (used by other GUI modules)
 
 SETTINGS = CONFIG / "gui.json"
-VARIANT_WORDS = ("VOL", "MUTE", "Vol", "Mute", "Left Space", "Right Space")     # knob / split-space key variants
-
-
-def is_variant(key: dict) -> bool:
-    return any(w in key["KeyName"] for w in VARIANT_WORDS)
 
 
 class Settings:
