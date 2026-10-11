@@ -120,7 +120,7 @@ The app is **done** when every item below is checked. Keep this list current.
       udev rule installed; GitHub: github.com/AbdulWasayWk/OpenGK6X (pushed)
 - [x] Knob options (user request 2026-10-12, as in the official app): the GK104 Pro's **3 knobs**, each with its own
       turn left / turn right / press (9 actions, normal and Fn layer): knob dials in the picture showing their 3
-      actions + a 3-part panel in the editor; CLI `knob1-left` … `knob3-press`
+      actions + a 3-part panel in the editor; CLI `knob1-left` … `knob3-press` (all 9 verified by the user)
 - [x] Wireless: profiles 1–3 aren't used over 2.4 GHz; **the Standard profile is** and its keys are now editable
       (keys only: macros/Fn layer refused). Custom effects carry over. Configuration needs the cable.
 
@@ -220,8 +220,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
   place (user, corrected 2026-10-12; first read as one knob) and a **screen** over the nav block. The knobs = the
   template's Print Screen / Scroll Lock / Pause knob variants (`<key> VOLU` = turn left, `VOLD` = turn right,
   `MUTE` = press; matrix 122/123/121, 125/126/124, 105/106/127). Official defaults: zoom Ctrl −/+ and pause
-  lighting; brightness −/+ and lighting on/off; volume −/+ and mute; Fn + any knob = volume/mute. Middle knob tested
-  (turn left = 125, press → Mute ✓). (source: hardware + user)
+  lighting; brightness −/+ and lighting on/off; volume −/+ and mute; Fn + any knob = volume/mute. **All 9 knob
+  actions verified on hardware by the user (2026-10-12)**, written from the GUI. (source: hardware + user)
 - 2026-10-11: **Custom effects list works** (written from the GUI by the user, 3 library effects, 40 packets): Fn+−
   cycles them; they run much slower than the preview. **Reply status `01` is the normal OK for lighting writes
   (`26`/`27`)**, `00` for `21`/`22`/`31`; so in profiles 1–3 the lighting data was accepted, just not used on this
