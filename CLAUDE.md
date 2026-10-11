@@ -35,7 +35,7 @@ RGB controller. Reuse its structure, conventions and tooling; this project follo
     GK104 Pro driver (direct per-key lighting) but **isn't running**; if it ever runs it will grab the keyboard.
 - **2.4 GHz dongle (probably this keyboard's): USB `1ea7:0067`** "Nordic Semiconductor nRF52 USB Product",
   bus 1 port `1-4`. if0 keyboard, if1 mouse, if2 system/consumer, **if3 = same config interface** as wired if1.
-  No access yet (`/dev/hidrawN` is root 600): needs `packaging/70-opengk6x.rules` (`tools/setup-dev.sh udev`, sudo).
+  Access: `packaging/70-opengk6x.rules`, installed by the user 2026-10-11 (`/etc/udev/rules.d/`); grants if3 only.
 - Windows VM `win10` (libvirt, `qemu:///system`, user is in `libvirt`), shut off. Used for OpenNollie captures.
   ⚠ Passing the keyboard through to the VM takes it away from the host while attached (the mouse stays). The
   host still sees the traffic: `tools/setup-dev.sh usbmon` (once per boot, sudo), then
@@ -91,7 +91,7 @@ docs/PROTOCOL.md
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ### Phase 0: Environment ✅ (2026-10-11)
-- [x] Project skeleton, git, udev rule (written, not installed), capture tooling, prior art cloned
+- [x] Project skeleton, git, udev rule (installed 2026-10-11; dongle if3 only), capture tooling, prior art cloned
 - [x] Read-only handshake from Linux works: `python3 -m opengk6x info` (model 656802056, fw `0x84223311`)
 
 ### Phase 1: Reverse engineering
@@ -121,6 +121,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## Findings log
 <!-- Newest first. Format: YYYY-MM-DD: finding (source: capture/file/test) -->
+- 2026-10-11: **The dongle (`1ea7:0067` if3) accepts writes but doesn't answer the handshake** (no report at all
+  within 1 s) while the keyboard is in wired mode. Retest with the keyboard switched to 2.4 GHz. The udev rule
+  works: on the dongle only if3 is user-accessible. (source: hidapi on host)
 - 2026-10-11: **Handshake works from Linux on the wired interface**: `01 09` → buffers 16, 8; `01 01` → firmware ID
   `0x84223311`, bytes 5.118; `01 08` → model **656802056** (with its own CRC, valid). All replies have valid CRCs
   (CRC-16/CCITT-FALSE, pixeltris form). The pair matches the "104RGB" entry in the vendor's 2021 `modellist.json`.
