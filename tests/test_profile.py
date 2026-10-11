@@ -23,7 +23,7 @@ def load_macro(guid):
 
 
 def our_packets(profile):
-    data = pr.build(profile, MATRIX, load_effect, load_macro)
+    data = pr.build(profile, MATRIX, load_effect, load_macro, app_compatible=True)
     return [p.info_request(p.INFO_MATRIX).hex()] + [x.hex() for x in pr.packets(data)]
 
 
@@ -51,7 +51,7 @@ class TestAgainstOfficialApp(unittest.TestCase):
 class TestBlocks(unittest.TestCase):
     def test_key_table(self):
         table = pr.key_table([{"Index": 1, "DriverValue": "0x02000601"}, {"Index": 300, "DriverValue": "0x1"}],
-                             512, None)
+                             512, lambda i, k: 0)
         self.assertEqual(table[4:8], bytes([0x01, 0x06, 0x00, 0x02]))
         self.assertEqual(table[:4], b"\xff" * 4)
 
@@ -67,6 +67,23 @@ class TestBlocks(unittest.TestCase):
         with self.assertRaises(ValueError):
             pr.macro_data({"KeySet": [{"Index": 1, "DriverValue": "0x0A010001",
                                        "Task": {"Type": "Macro", "Data": {"GUID": "nope"}}}]}, lambda g: None)
+
+    def test_macro_slots_fixed(self):
+        """Our default: every macro key, main or Fn, gets its own macro's slot (the app gives Fn keys slot 0)."""
+        profile = json.loads((FIXTURES / "profiles" / "full.json").read_text())
+        data = pr.build(profile, MATRIX, load_effect, load_macro)
+        slot = lambda table, i: table[i * 4]
+        self.assertEqual([slot(data.keys, i) for i in (5, 6, 7)], [0, 1, 0])     # COMBO, MOUSE, COMBO
+        self.assertEqual(slot(data.fn_keys, 2), 0)                                # Fn+2 → COMBO = slot 0
+        profile["FnKeySet"][1]["Task"]["Data"]["GUID"] = "TEST-MACRO-MOUSE"
+        data = pr.build(profile, MATRIX, load_effect, load_macro)
+        self.assertEqual(slot(data.fn_keys, 2), 1)
+        self.assertEqual(slot(data.keys, 5), 0)                                   # unaffected by Fn+2's macro
+
+    def test_without_lighting(self):
+        profile = json.loads((FIXTURES / "profiles" / "full.json").read_text())
+        ops = {x[0] for x in pr.packets(pr.build(profile, MATRIX, load_effect, load_macro, lighting=False))}
+        self.assertFalse(ops & {p.OP_LIGHT_KEYS, p.OP_LIGHT_DATA})
 
     def test_js_parse_int(self):
         self.assertEqual(pr.js_parse_int("0x0A010001", 16), 0x0A010001)

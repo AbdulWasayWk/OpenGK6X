@@ -110,16 +110,15 @@ def _hex32(value) -> int:
 
 # --- Blocks ------------------------------------------------------------------------------------
 
-def key_table(keyset: list, size: int, macro_index: bytes | None) -> bytes:
-    """Driver value per matrix index (u32 LE), unset = FF FF FF FF. macro_index None = the app's Fn-layer bug
-    (it reads past its macro index table, which gives 0)."""
+def key_table(keyset: list, size: int, macro_slot: Callable[[int, dict], int]) -> bytes:
+    """Driver value per matrix index (u32 LE), unset = FF FF FF FF. Macro keys get macro_slot(index, entry)."""
     table = bytearray(b"\xff" * size)
     for key in keyset[:128]:
         idx = _index(key.get("Index"), size // 4)
         if idx is None:
             continue
         v = _hex32(key.get("DriverValue"))
-        low = (macro_index[idx] if macro_index is not None else 0) if v == MACRO_KEY else v & 0xFF
+        low = macro_slot(idx, key) if v == MACRO_KEY else v & 0xFF
         table[idx * 4:idx * 4 + 4] = bytes([low, (v >> 8) & 0xFF, (v >> 16) & 0xFF, (v >> 24) & 0xFF])
     return bytes(table)
 
@@ -173,9 +172,15 @@ def _macro_action(name: str, value: str) -> tuple:
     return d0, d1, status, typ
 
 
-def macro_frame(slot: int, stop_mode, repeats, script: str) -> bytes:
-    """One 512-byte macro: header (AA 55, CRC, count, slot, stop mode, repeats) + 4-byte actions."""
-    actions = [_macro_action(n, v) for n, v in parse_macro_script(script) + [("Delay", "5")]]
+def macro_frame(slot: int, stop_mode, repeats, script) -> bytes:
+    """One 512-byte macro: header (AA 55, CRC, count, slot, stop mode, repeats) + 4-byte actions.
+    `script` is the official script text or a list of (data0, data1, status, type) actions; like the app, a
+    5 ms delay is appended."""
+    if isinstance(script, str):
+        actions = [_macro_action(n, v) for n, v in parse_macro_script(script)]
+    else:
+        actions = list(script)
+    actions.append(_macro_action("Delay", "5"))
     frame = bytearray(MACRO_LEN)
     for i, fields in enumerate(actions):
         for j, value in enumerate(fields):
@@ -189,8 +194,9 @@ def macro_frame(slot: int, stop_mode, repeats, script: str) -> bytes:
     return bytes(frame)
 
 
-def macro_data(profile: dict, load_macro: Callable[[str], str | None]) -> tuple[bytes, bytes]:
-    """(macro frames, 256-byte slot index by matrix index; FF = none). Main and Fn keys share one index."""
+def macro_data(profile: dict, load_macro: Callable[[str], str | list | None]) -> tuple[bytes, bytes, list[str]]:
+    """(macro frames, 256-byte slot index by matrix index (FF = none; main and Fn keys share it, as in the app),
+    GUID of each slot)."""
     guids, frames, index = [], [], bytearray(b"\xff" * 256)
     for key in (profile.get("KeySet") or []) + (profile.get("FnKeySet") or []):
         task = key.get("Task")
@@ -210,7 +216,7 @@ def macro_data(profile: dict, load_macro: Callable[[str], str | None]) -> tuple[
         if script is None:
             raise ValueError(f"macro {guid} not found")   # the app aborts the whole write here
         frames.append(macro_frame(len(guids) - 1, data.get("StopMode"), data.get("Repeats"), script))
-    return b"".join(frames), bytes(index)
+    return b"".join(frames), bytes(index), guids
 
 
 def _effect_entries(profile: dict) -> tuple[list[tuple], object, bytearray]:
@@ -339,21 +345,33 @@ class ProfileData:
     fn_keys: bytes | None
     colors: bytes | None        # per-key static colors (LEData)
     macros: bytes
-    light_keys: bytes
+    light_keys: bytes | None    # None: lighting left out (build(lighting=False))
     light: bytes | None
 
 
-def build(profile: dict, matrix: tuple[int, int], load_effect, load_macro) -> ProfileData:
+def build(profile: dict, matrix: tuple[int, int], load_effect, load_macro, app_compatible: bool = False,
+          lighting: bool = True) -> ProfileData:
+    """Compile a profile. app_compatible=True reproduces the official app exactly, including its macro-slot bugs
+    (Fn-layer macros all get slot 0; an Fn macro overwrites the slot of the main key at the same index). By default
+    each macro key gets the slot of its own macro. lighting=False leaves out the lighting data (for keyboards
+    whose profiles have no lighting of their own, `hasModeLe` false; the firmware rejects it)."""
     cols, rows = matrix
     size = cols * rows * 4
-    macros, macro_index = macro_data(profile, load_macro)
-    light_keys, light = light_data(profile, load_effect)
+    macros, macro_index, guids = macro_data(profile, load_macro)
+    light_keys, light = light_data(profile, load_effect) if lighting else (None, None)
     keyset, fn_keyset = profile.get("KeySet"), profile.get("FnKeySet")
+
+    def own_slot(_idx, key):
+        guid = ((key.get("Task") or {}).get("Data") or {}).get("GUID")
+        return guids.index(guid) if guid in guids else 0xFF
+
+    main_slot = (lambda idx, _key: macro_index[idx]) if app_compatible else own_slot
+    fn_slot = (lambda _idx, _key: 0) if app_compatible else own_slot
     return ProfileData(
         mode=_u8(profile.get("ModeIndex")),
         matrix=matrix,
-        keys=key_table(keyset, size, macro_index) if isinstance(keyset, list) else None,
-        fn_keys=key_table(fn_keyset, size, None) if isinstance(fn_keyset, list) else None,
+        keys=key_table(keyset, size, main_slot) if isinstance(keyset, list) else None,
+        fn_keys=key_table(fn_keyset, size, fn_slot) if isinstance(fn_keyset, list) else None,
         colors=color_block(profile["LEData"]) if isinstance(profile.get("LEData"), (dict, list)) or
         ("LEData" in profile and profile["LEData"] is None) else None,
         macros=macros,
@@ -373,14 +391,15 @@ def packets(data: ProfileData) -> list[bytes]:
     if data.colors is not None:
         out += [p.clear(m, p.DATA_LEDATA)] + p.chunks(p.OP_LEDATA, m, data.colors)
     out += [p.clear(m, p.DATA_MACROS)] + p.chunks(p.OP_MACROS, m, data.macros)
-    out.append(p.clear(m, p.DATA_LIGHT_KEYS))
-    n = data.matrix[0] * data.matrix[1]
-    for addr in range(0, n, p.PAYLOAD_LEN):
-        part = data.light_keys[addr:min(addr + p.PAYLOAD_LEN, n)]
-        out.append(p.packet(p.OP_LIGHT_KEYS, m, struct.pack("<I", (len(part) << 16) + addr), part))
-    out.append(p.clear(m, p.DATA_LIGHT_DATA))
-    if data.light is not None:
-        out += p.chunks(p.OP_LIGHT_DATA, m, data.light)
+    if data.light_keys is not None:
+        out.append(p.clear(m, p.DATA_LIGHT_KEYS))
+        n = data.matrix[0] * data.matrix[1]
+        for addr in range(0, n, p.PAYLOAD_LEN):
+            part = data.light_keys[addr:min(addr + p.PAYLOAD_LEN, n)]
+            out.append(p.packet(p.OP_LIGHT_KEYS, m, struct.pack("<I", (len(part) << 16) + addr), part))
+        out.append(p.clear(m, p.DATA_LIGHT_DATA))
+        if data.light is not None:
+            out += p.chunks(p.OP_LIGHT_DATA, m, data.light)
     if m != p.MODE_STANDARD:
         out.append(p.set_mode(m))
     return out
