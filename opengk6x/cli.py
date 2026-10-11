@@ -8,6 +8,7 @@ from pathlib import Path
 from . import bindings as b
 from . import device
 from . import protocol as p
+from . import transfer
 from .macros import REPEAT_MODES, Macro, parse_text, to_text
 from .store import SLOT_MODES, Profile, Store, check_binding, compile_packets, fingerprint
 from .vendordata import VendorData, VendorDataMissing
@@ -267,6 +268,57 @@ def cmd_macro_delete(args):
     store.save_macros(macros)
 
 
+# --- import / export ----------------------------------------------------------------------------
+
+def cmd_export(args):
+    store = Store()
+    if args.official:
+        model = connected_model() if args.model is None else args.model
+        files, notes = transfer.write_official(store, model, VendorData(), Path(args.path))
+        for f in files:
+            print(f"wrote {f}")
+        for n in notes:
+            print(f"note: {n}")
+        print("In the official app: profiles → its import-configuration button (.gpr); macros and effects → "
+              "the import buttons on the Macro and LE pages.")
+    else:
+        transfer.write_backup(store, Path(args.path))
+        print(f"wrote {args.path}")
+
+
+def cmd_import(args):
+    store = Store()
+    model = connected_model() if args.model is None else args.model
+    paths = [Path(p) for p in args.paths]
+    for path in paths:
+        if not path.exists():
+            raise Abort(f"{path} doesn't exist")
+    if len(paths) == 1 and transfer.is_backup(paths[0]):
+        imported = transfer.read_backup(paths[0], model)
+    else:
+        imported = transfer.read_official(paths, model, VendorData())
+    for n in imported.notes:
+        print(f"note: {n}")
+    if not (imported.profiles or imported.macros or imported.effects):
+        raise Abort("nothing to import")
+    current = store.profiles(model)
+    replaced = [s for s in imported.profiles if current[s] and current[s].to_json() != imported.profiles[s].to_json()]
+    if replaced and not args.dry_run:
+        confirm(f"Replace your OpenGK6X profile {', '.join(replaced)} with the imported one?", args.yes)
+    if args.dry_run:
+        for slot, prof in sorted(imported.profiles.items()):
+            print(f"profile {slot}: {prof.name}")
+            for layer, title in ((prof.keys, ""), (prof.fn_keys, "Fn+")):
+                for k, v in sorted(layer.items()):
+                    print(f"    {title}{k:22} → {describe(v)}")
+        print(f"macros: {', '.join(sorted(imported.macros)) or 'none'}; effects: {len(imported.effects)}")
+        return
+    for line in transfer.merge(store, model, imported):
+        print(f"imported {line}")
+    if imported.profiles:
+        print("Nothing was written to the keyboard. To use an imported profile: opengk6x profile apply SLOT")
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="opengk6x", description="Configure GK6X keyboards (Skyloong GK104 Pro)")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -326,6 +378,18 @@ def main(argv=None):
     c.add_argument("steps", nargs="+")
     c = command(mac, "delete", cmd_macro_delete, "delete a macro")
     c.add_argument("name")
+
+    c = command(sub, "export", cmd_export, "save everything to an OpenGK6X backup (.json), or with --official "
+                "write files the official app can import")
+    c.add_argument("path", help="backup file, or a folder with --official")
+    c.add_argument("--official", action="store_true")
+    c.add_argument("--model", type=int, help="keyboard model id (default: the connected keyboard)")
+    c = command(sub, "import", cmd_import, "import an OpenGK6X backup, or the official app's files: .gpr/.cmf "
+                "profiles, .cms macros, .le effects, or a copy of its GK6XPlus-CMS folder")
+    c.add_argument("paths", nargs="+")
+    c.add_argument("--dry-run", action="store_true", help="show what would be imported")
+    c.add_argument("--yes", "-y", action="store_true")
+    c.add_argument("--model", type=int, help="keyboard model id (default: the connected keyboard)")
 
     args = ap.parse_args(argv)
     try:

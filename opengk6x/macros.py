@@ -108,7 +108,7 @@ def to_text(steps: list[dict]) -> str:
             out.append(f"{s['delay']}ms")
             i += 1
             continue
-        what = s.get("key") or f"click:{s['mouse']}"
+        what = b.FRIENDLY.get(s.get("key"), s.get("key")) or f"click:{s['mouse']}"
         nxt = steps[i + 1] if i + 1 < len(steps) else {}
         if s["action"] == "down" and nxt.get("action") == "up" and nxt.get("key") == s.get("key") \
                 and nxt.get("mouse") == s.get("mouse"):

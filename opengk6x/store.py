@@ -4,6 +4,7 @@ The keyboard can't be read back, so these files are the only record of what's in
 
     ~/.config/opengk6x/<model>/profiles.json   offline profiles 1-3: name + changes from the defaults
     ~/.config/opengk6x/macros.json             macro library (shared by all profiles)
+    ~/.config/opengk6x/effects/<GUID>.json     lighting effects (official .le format), e.g. imported ones
 
 A profile only lists keys that differ from the model's default profile:
 
@@ -75,6 +76,16 @@ class Store:
         tmp = f.with_suffix(".tmp")
         tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1))
         tmp.replace(f)
+
+    # lighting effects (official .le JSON: {GUID, Name, Frames, LEConfigs}), kept for the lighting pages
+    def effects(self) -> dict[str, dict]:
+        d = self.root / "effects"
+        return {f.stem: json.loads(f.read_text()) for f in sorted(d.glob("*.json"))} if d.is_dir() else {}
+
+    def save_effect(self, effect: dict):
+        d = self.root / "effects"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / f"{effect['GUID']}.json").write_text(json.dumps(effect, ensure_ascii=False, indent=1))
 
     # macros
     def _macros_file(self) -> Path:

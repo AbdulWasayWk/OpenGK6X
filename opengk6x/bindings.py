@@ -24,6 +24,8 @@ MODIFIERS = [("lctrl", "Left Ctrl"), ("lshift", "Left Shift"), ("lalt", "Left Al
 MODIFIER_BITS = {n: 1 << i for i, (n, _) in enumerate(MODIFIERS)}
 MODIFIER_ALIASES = {"ctrl": "lctrl", "control": "lctrl", "shift": "lshift", "alt": "lalt", "win": "lwin",
                     "super": "lwin", "meta": "lwin", "gui": "lwin", "altgr": "ralt", "rsuper": "rwin"}
+FRIENDLY = {"lctrl": "ctrl", "lshift": "shift", "lalt": "alt", "lwin": "super",     # text form in combos
+            "rctrl": "rctrl", "rshift": "rshift", "ralt": "altgr", "rwin": "rsuper"}
 _MOD_SHORT = {"lctrl": "Ctrl", "lshift": "Shift", "lalt": "Alt", "lwin": "Super",
               "rctrl": "RCtrl", "rshift": "RShift", "ralt": "AltGr", "rwin": "RSuper"}
 
@@ -157,7 +159,7 @@ def name(value: int) -> str:
         return _BY_VALUE[value].name
     if value >> 16 == 0x0200:
         usage, mods = value >> 8 & 0xFF, value & 0xFF
-        parts = [n for n, _ in MODIFIERS if mods & MODIFIER_BITS[n]]
+        parts = [FRIENDLY[n] for n, _ in MODIFIERS if mods & MODIFIER_BITS[n]]
         if usage in KEYS:
             parts.append(KEYS[usage][0])
         elif usage:

@@ -31,3 +31,25 @@ def decode(blob: bytes) -> tuple[str, bytes]:
 def decode_text(blob: bytes) -> str:
     """Plain body as text (UTF-8, byte-order mark removed)."""
     return decode(blob)[1].decode("utf-8-sig")
+
+
+# File names the official app gives each type (8-byte header field; part of the key stream)
+NAMES = {"PROFILE": "profile", "LIGHT": "light", "MACRO": "MACRO"}
+
+
+def encode(type_name: str, body: bytes, name: str | None = None, timestamp: int | None = None) -> bytes:
+    """Plain body → CMF file, as the app's cmfcodec.encode writes it."""
+    import time
+    typ = TYPE_NAMES.index(type_name)
+    name_field = (name if name is not None else NAMES.get(type_name, "")).encode("latin-1")[:8].ljust(8, b"\0")
+    header = bytearray(32)
+    when = int(time.time()) if timestamp is None else timestamp
+    struct.pack_into("<5IB", header, 0, MAGIC, 0, when, len(body), crc16(body), typ)
+    header[24:32] = name_field
+    struct.pack_into("<I", header, 4, crc16(header))
+    key = crc16(name_field, crc16(type_name.encode()))
+    out = bytearray()
+    for p in body:
+        out.append(p ^ (key & 0xFF))
+        key = crc16(bytes([p]), key)
+    return bytes(header) + bytes(out)

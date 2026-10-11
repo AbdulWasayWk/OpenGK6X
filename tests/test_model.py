@@ -34,6 +34,9 @@ class TestBindings(unittest.TestCase):
         self.assertEqual(b.parse("0x0A130002"), 0x0A130002)
         self.assertEqual(b.label(0x02000601), "Copy (Ctrl+C)")
         self.assertEqual(b.label(0x02000703), "Ctrl+Shift+D")
+        self.assertEqual(b.name(0x02001703), "ctrl+shift+t")
+        self.assertEqual(b.name(0x02001740), "altgr+t")
+        self.assertEqual(b.name(0x02000001), "lctrl")
         with self.assertRaises(ValueError):
             b.parse("ctrl+nosuchkey")
         with self.assertRaises(ValueError):
@@ -60,7 +63,7 @@ class TestMacros(unittest.TestCase):
         steps = m.parse_text("+ctrl c -ctrl 100ms enter click:left +shift")
         self.assertEqual(steps[:3], [{"key": "lctrl", "action": "down"}, {"key": "c", "action": "down"},
                                      {"key": "c", "action": "up"}])
-        self.assertEqual(m.to_text(steps), "+lctrl c -lctrl 100ms enter click:left +lshift")
+        self.assertEqual(m.to_text(steps), "+ctrl c -ctrl 100ms enter click:left +shift")
         with self.assertRaises(ValueError):
             m.parse_text("click:middle")
 
