@@ -87,7 +87,22 @@ Chunks are ≤ 56 bytes; each one is acknowledged (reply byte 1 is read as the a
 | `31` | mode | writeFnData (A) | Fn-layer driver values |
 | `41` | 01 | WRITE_MAC_VID ("changePid") | rewrites the keyboard's USB identity: **never send** |
 
-## Profiles ("modes") ✔ in code
+## Profiles ("modes") ✔
+
+**Write replies ✔** (profile 1 write, 2026-10-11): every packet gets `[op, status, 0 0 0 0, CRC, 0…]` with a valid
+CRC. Status `00` for `21`, `22`, `31` (accepted: the key change took effect); **`01` for `26`, `27`** (lighting data:
+evidently rejected on this model, see *Lighting on this keyboard*); `0B` echoes the mode.
+
+### Lighting on this keyboard ✔ (model config `hasModeLe: false`)
+- Offline profiles 1–3 have **no lighting of their own**: the firmware answers `26`/`27` with `01` and shows nothing
+  from it. The official UI greys out the effect picker for modes 2–4 when `hasModeLe` is false (it still sends the
+  data, since `profile.js` doesn't check).
+- The lighting is chosen on the keyboard in every profile: **Fn+=** cycles the firmware's built-in effects,
+  **Fn+−** cycles the **custom effects stored as the standard profile's effect list** (`DriverLE`, written to mode 1
+  with `21 01 06` + `27 01 …`). Brightness Fn+↑/↓, speed Fn+←/→ (firmware; the Up key flashes as an indicator).
+- After our profile 1 write the profile came up dark until the user picked an effect with Fn+=/Fn+−.
+- ⚠ The keyboard can't be read back, so writing mode 1's lighting replaces the user's custom effects for good.
+
 
 `0B <mode>` selects one; the keyboard reports `0B <mode>` when the user switches with Fn keys.
 
@@ -99,7 +114,7 @@ Chunks are ≤ 56 bytes; each one is acknowledged (reply byte 1 is read as the a
 
 Per-model defaults: `resources/device/<ModelID>/data/profile_offline_{std,1,2,3}.json`, `profile_online_1.json`.
 
-## Offline profile write (`libs/profile.js writeDeviceConfig`) ✔ in code
+## Offline profile write (`libs/profile.js writeDeviceConfig`) ✔ on hardware (keys)
 
 All writes go to `mode` (2–4, or 1 for the effects list). Chunks ≤ 56 B; the app sleeps 1 ms between chunks on
 firmware IDs starting `83`/`84` (ours), 10 ms otherwise. Order:

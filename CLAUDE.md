@@ -121,6 +121,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [ ] Wireless: does the dongle answer the handshake? Bluetooth: is there a config channel at all?
 
 ### Phase 2: Protocol library
+- [x] Offline profile writer = the app's `profile.js`, byte for byte (`profile.py`; golden tests from the app's own
+      code via `tools/re/golden_profile.js`). CLI `keys`, `mode`, `profile write SLOT [--set KEY=BINDING]`
+- [x] **First hardware write (2026-10-11): profile 1 = default + App→Q.** User confirmed Menu types q; switched back
+      to standard with `opengk6x mode standard`. Lighting in profiles: see findings
 - [ ] Layers + keymaps (with a safe test plan, see conventions), Fn layer
 - [ ] Lighting: built-in modes, per-key static, press lighting, direct mode
 - [ ] Macros
@@ -139,6 +143,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## Findings log
 <!-- Newest first. Format: YYYY-MM-DD: finding (source: capture/file/test) -->
+- 2026-10-11: **First write works.** `opengk6x profile write 1 --set App=q` (40 packets, 0.2 s): Menu typed q in
+  profile 1. Replies: `00` for `21`/`22`/`31`, **`01` for `26`/`27`**, `0B` echoes the mode; all CRCs valid.
+  **Lighting on this model** (`hasModeLe: false`): profiles 1–3 don't take lighting data (the `01` = rejected; the
+  official UI greys the picker out for them), so profile 1 came up dark until the user pressed **Fn+=** (built-in
+  effects) / **Fn+−** (the user's **custom effects**, stored as the standard profile's `DriverLE` list). Fn+↑/↓ is
+  brightness (firmware), not profile 1's Fn+F1/F2 entries. The user has custom effects in the keyboard that can't be
+  read back. (source: hardware + user)
 - 2026-10-11: **GK6+ 8.0.7 supports this keyboard** (model 656802056 / FWID `0x84223311`, "104RGB"); keymap.js has
   the same 124 keys as pixeltris's copy. Same command set as 8.0.1; still wired-only (`0907`), so **the official app
   can't configure over the dongle or Bluetooth** either. The app writes offline profiles 1–3 (modes 2–4) whole
@@ -181,6 +192,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - **This is the user's only keyboard.** A bad keymap can leave them unable to type. Like the official app, write
   keys only to offline profiles 1–3 (modes 2–4), never the standard layer (mode 1). Switch back to standard with
   `0B 01` from the CLI (mouse-only) or the keyboard; last resort **Fn+Esc+Q** (factory reset).
+- **Don't write the standard profile's lighting (mode 1, `21 01 06` / `27 01`) without the user's explicit OK**:
+  it holds the user's custom effects (Fn+−), which can't be read back, so a write replaces them for good.
 - Never send firmware-update / bootloader commands, `03` restart variants that enter boot modes, or `41 01`
   (rewrites the keyboard's USB VID/PID).
 - The vendor app and its data are proprietary: keep them out of git; our code is written fresh from the documented
