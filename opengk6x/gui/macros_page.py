@@ -122,7 +122,7 @@ class RecordDialog(QDialog):
 
 class MacrosPage(QWidget):
     title = "Macros"
-    icon = "media-record"
+    icon = "macros"
 
     def __init__(self, state: AppState):
         super().__init__()

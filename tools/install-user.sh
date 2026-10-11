@@ -45,7 +45,9 @@ for name in opengk6x opengk6x-gui; do
     chmod +x "$BIN/$name"
 done
 install -m644 "$REPO/opengk6x/gui/opengk6x.svg" "$ICONS/opengk6x.svg"
-sed "s|^Exec=opengk6x-gui|Exec=$BIN/opengk6x-gui|" "$REPO/packaging/opengk6x.desktop" > "$APPS/opengk6x.desktop"
+# Icon by file path: Plasma's icon cache may not know an icon newly added to ~/.local/share/icons
+sed -e "s|^Exec=opengk6x-gui|Exec=$BIN/opengk6x-gui|" -e "s|^Icon=opengk6x$|Icon=$ICONS/opengk6x.svg|" \
+    "$REPO/packaging/opengk6x.desktop" > "$APPS/opengk6x.desktop"
 command -v update-desktop-database >/dev/null && update-desktop-database "$APPS" 2>/dev/null || true
 echo "installed: $BIN/opengk6x, $BIN/opengk6x-gui, app-menu entry \"OpenGK6X\""
 case ":$PATH:" in *":$BIN:"*) ;; *) echo "note: $BIN is not on your PATH" ;; esac

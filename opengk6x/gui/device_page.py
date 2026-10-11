@@ -18,7 +18,7 @@ SHORTCUTS = [("Fn + =", "Next built-in lighting effect"), ("Fn + −", "Next cus
 
 class DevicePage(QWidget):
     title = "Keyboard"
-    icon = "preferences-desktop-peripherals"
+    icon = "keyboard"
 
     def __init__(self, state: AppState):
         super().__init__()

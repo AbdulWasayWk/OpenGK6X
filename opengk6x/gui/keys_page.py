@@ -25,7 +25,7 @@ def describe(binding) -> str:
 
 class KeysPage(QWidget):
     title = "Keys"
-    icon = "input-keyboard"
+    icon = "keys"
 
     def __init__(self, state: AppState):
         super().__init__()

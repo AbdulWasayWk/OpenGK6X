@@ -19,7 +19,7 @@ GUID_ROLE = Qt.UserRole
 
 class LightingPage(QWidget):
     title = "Lighting"
-    icon = "preferences-desktop-color"
+    icon = "lighting"
 
     def __init__(self, state: AppState):
         super().__init__()

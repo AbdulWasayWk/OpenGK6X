@@ -281,7 +281,7 @@ class ActionDialog(QDialog):
 
 class LivePage(QWidget):
     title = "Live mode"
-    icon = "media-playback-start"
+    icon = "live"
 
     def __init__(self, state: AppState, controller: LiveController):
         super().__init__()

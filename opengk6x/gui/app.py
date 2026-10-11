@@ -1,13 +1,13 @@
 """OpenGK6X main window."""
 import sys
-from pathlib import Path
 
-from PySide6.QtCore import QSize
-from PySide6.QtGui import QAction, QIcon
+from PySide6.QtCore import QSize, Qt
+from PySide6.QtGui import QAction, QPalette
 from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMainWindow, QMenu,
                                QStackedWidget, QSystemTrayIcon, QVBoxLayout, QWidget)
 
 from .common import AppState, heading, hint
+from .icons import app_icon, line_icon
 from .device_page import DevicePage
 from .keys_page import KeysPage
 from .lighting_page import LightingPage
@@ -17,7 +17,7 @@ from .macros_page import MacrosPage
 
 class MissingDataPage(QWidget):
     title = "Setup"
-    icon = "dialog-warning"
+    icon = "warning"
 
     def __init__(self):
         super().__init__()
@@ -29,10 +29,6 @@ class MissingDataPage(QWidget):
                            "    opengk6x setup-data GK6X_Setup_8.0.7.zip\n\n(the download from Epomaker, or the "
                            ".exe in it), then start OpenGK6X again."))
         lay.addStretch(2)
-
-
-def app_icon() -> QIcon:
-    return QIcon.fromTheme("opengk6x", QIcon(str(Path(__file__).with_name("opengk6x.svg"))))
 
 
 class MainWindow(QMainWindow):
@@ -61,8 +57,11 @@ class MainWindow(QMainWindow):
         self.nav.setFixedWidth(180)
         self.stack = QStackedWidget()
         for page in pages:
-            self.nav.addItem(QListWidgetItem(QIcon.fromTheme(page.icon), page.title))
+            item = QListWidgetItem(page.title)
+            item.setData(Qt.UserRole, page.icon)
+            self.nav.addItem(item)
             self.stack.addWidget(page)
+        self._nav_icons()
         self.nav.currentRowChanged.connect(self.stack.setCurrentIndex)
         central = QWidget()
         lay = QHBoxLayout(central)
@@ -110,10 +109,19 @@ class MainWindow(QMainWindow):
         self.raise_()
         self.activateWindow()
 
+    def _nav_icons(self):
+        """Sidebar icons in the text color (redrawn when the colors change, e.g. light ↔ dark)."""
+        color = self.nav.palette().color(QPalette.Text)
+        for i in range(self.nav.count()):
+            item = self.nav.item(i)
+            item.setIcon(line_icon(item.data(Qt.UserRole), color))
+
     def changeEvent(self, e):
         from PySide6.QtCore import QEvent
         if e.type() == QEvent.ActivationChange and self.isActiveWindow():
             self.state.reload_if_changed()
+        if e.type() == QEvent.PaletteChange and hasattr(self, "nav"):
+            self._nav_icons()
         super().changeEvent(e)
 
     def _connection(self, info):
