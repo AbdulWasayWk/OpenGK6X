@@ -128,7 +128,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Bindings catalog, profile store (changes from the standard layout), macros, import/export (official + backup)
 - [x] Verified on hardware: macros (normal + Fn layer with our registration fix), profile_N keys, knob remap;
       Space long-press types don't work on this firmware (hidden)
-- [ ] Wireless: do written profiles/effects work over 2.4 GHz / Bluetooth? (asked, not yet tested)
+- [~] Wireless: config over the receiver impossible (no answer); custom effects carry over; profiles 1–3 over
+      wireless still to test (switch to profile 1 on the cable, then flip to 2.4 GHz)
 - [x] Lighting: custom effects list (standard profile `DriverLE`, mode 1, no `0B`), effect player/preview, editor
 - [x] Custom list written on hardware by the user from the GUI (3 library effects): works, Fn+− cycles them;
       effects run much slower on the keyboard than the 50 ms-tick preview (accepted by the user)
@@ -154,6 +155,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## Findings log
 <!-- Newest first. Format: YYYY-MM-DD: finding (source: capture/file/test) -->
+- 2026-10-11: **No configuration over 2.4 GHz**: with the keyboard linked to the receiver, the receiver still
+  doesn't answer the handshake, and `0B 02` sent through it gets no reply. Custom lighting effects carry over to
+  wireless; whether offline profiles 1–3 apply over wireless is still open (the user's first test didn't switch to
+  profile 1 first). (source: user)
 - 2026-10-11: **Online mode works**: entering as the app does (ping, `0B 05`, ping, `15 03 01`, `16 01` key table
   with 0-fill, `16 03` all FF, `17 01`) keeps typing normal and sends `15 04` key reports (only on changes; nothing
   while idle). A `1A` frame (10 chunks + `1A 02`) takes ~17 ms (≈59 fps possible). The keyboard does **not** leave
