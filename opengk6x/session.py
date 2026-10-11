@@ -6,7 +6,7 @@ from pathlib import Path
 
 from . import device
 from . import protocol as p
-from .store import Profile, Store, compile_packets, fingerprint
+from .store import Profile, Store, compile_custom, compile_packets, fingerprint
 from .vendordata import VendorData
 
 STATE = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "opengk6x"
@@ -60,6 +60,31 @@ def status(store: Store, vendor: VendorData, model: int, slot: str, prof: Profil
         return NOT_WRITTEN
     current = fingerprint(compile_packets(prof, slot, vendor, model, matrix, store.macros()))
     return APPLIED if current == prof.applied else CHANGED
+
+
+def custom_status(store: Store, vendor: VendorData, model: int, matrix: tuple[int, int]) -> str:
+    data = store.lighting(model)
+    if data["applied"] is None:
+        return UNKNOWN
+    current = fingerprint(compile_custom(store, vendor, model, matrix, data["custom"]))
+    return APPLIED if current == data["applied"] else CHANGED
+
+
+def write_custom(kb: device.Keyboard, store: Store, vendor: VendorData, model: int, guids: list[str],
+                 progress=None) -> WriteResult:
+    """Replace the keyboard's custom effects list (Fn + −) with `guids` and record it."""
+    if kb.model_id() != model:
+        raise device.DeviceError("a different keyboard model is connected")
+    packets = compile_custom(store, vendor, model, kb.matrix(), guids)
+    t = time.monotonic()
+    replies = kb.write(packets, progress)
+    seconds = time.monotonic() - t
+    unexpected = sum(1 for r in replies if r[0] == p.OP_CLEAR and r[1] != 0)
+    store.save_lighting(model, {"custom": list(guids), "applied": fingerprint(packets)})
+    log = STATE / str(model) / "custom-effects.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text("".join(f"> {a.hex()}\n< {r.hex()}\n" for a, r in zip(packets, replies)))
+    return WriteResult(len(packets), seconds, unexpected, log)
 
 
 def write_profile(kb: device.Keyboard, store: Store, vendor: VendorData, model: int, slot: str,

@@ -166,6 +166,14 @@ address, u32 logic count` (rest `FF`); effect data from 512 on:
   Type 0 static color; 1 color cycle (data0 = 360 / Count); 2 breathing (data0 = 100 / Count, data1 = StayCount)
 - a profile without an effect file but with `ModeLE.LEData` gets one static frame: `u16 0, u16 704, 176 × R G B 100`
 
+Playback (app `cmleplayer.js`, one tick per 50 ms on the PC; the keyboard runs its own clock): each tick shows one
+frame (frames repeated `Count` times); a lit LED takes the color of the first LEConfig whose `Keys` contain it;
+type 1 turns the hue by 360/Count° per tick (keyboard data: data0 = ⌊360/Count⌋), type 2 fades in by L/Count per
+tick, holds `StayCount` ticks, fades out, holds dark (data0 = ⌊100/Count⌋, data1 = StayCount).
+
+The **custom effects list** (Fn + −) is the standard profile's lighting: ModeIndex 1 with `DriverLE` = up to 5 effect
+GUIDs → `21 01 04`, `21 01 05` + `26 01` (all FF), `21 01 06` + `27 01` light data; no `0B` afterwards.
+
 Effect files (`.le`, CMF type LIGHT) are JSON: `{GUID, Name, Frames: [{Count, Data: {led: "0xRRGGBB"}}],
 LEConfigs: [{Type, Count, StayCount?, Color, Keys: [led…]}]}`. LED indexes are `LocationCode`s (0..175).
 

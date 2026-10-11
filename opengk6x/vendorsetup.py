@@ -62,6 +62,30 @@ def _find_asar(src: Path, work: Path) -> Path:
     return work / "app" / "resources" / "app.asar"
 
 
+def _default_library(f, entries) -> list[dict]:
+    """The effect list the official UI starts every keyboard with (GUID, name, LeCate = the layout an effect
+    was drawn for, LeType "combination" = online-only). It's only in the UI bundle, as a JS literal."""
+    import re
+    for name, offset, size in entries:
+        if not (name.startswith("ui/js/") and name.endswith(".js")):
+            continue
+        f.seek(offset)
+        text = f.read(size).decode("utf-8", errors="replace")
+        start = text.find("les:[{GUID:")
+        if start < 0:
+            continue
+        end = text.find("}]", start)
+        out = []
+        for m in re.finditer(r'\{GUID:"([^"]+)",Name:"([^"]*)"([^}]*)\}', text[start:end + 1]):
+            extra = m.group(3)
+            cate = re.search(r"LeCate:(\d+)", extra)
+            kind = re.search(r'LeType:"([^"]*)"', extra)
+            out.append({"GUID": m.group(1), "Name": m.group(2), "LeCate": int(cate.group(1)) if cate else None,
+                        "LeType": kind.group(1) if kind else None})
+        return out
+    return []
+
+
 def install(src: Path, dest: Path = DATA_DIR) -> dict:
     """Extract the model data and libraries from the installer / app folder `src` into `dest`."""
     src = Path(src)
@@ -78,6 +102,9 @@ def install(src: Path, dest: Path = DATA_DIR) -> dict:
                 f.seek(offset)
                 out.write_bytes(f.read(size))
                 count += 1
+            library = _default_library(f, asar_entries(asar))
+            if library:
+                (new / "res/data/le/library.json").write_text(json.dumps(library, ensure_ascii=False, indent=0))
         if not (new / "device/modellist.json").is_file():
             raise ValueError("the installer has no keyboard model data (device/modellist.json)")
         if dest.exists():

@@ -77,7 +77,7 @@ From GK6+ 8.0.7 (`config.json` FuncTable: Configure keyboard, LE library, Macro 
 | Device | detect (VER/DEVICE_ID/MODEL_ID), firmware version, picture of the keyboard (`keymap.js` positions) | [x] CLI `info`, GUI Keyboard page; keyboard picture drawn by us |
 | Profiles | standard (effects list only) + offline profiles 1–3 stored in the keyboard; switch with `0B` or Fn keys; online (PC-driven) profiles; profile import/export (`.cmf`, `.gpr`) | [x] offline 1–3 (CLI + GUI), switching, import/export; [ ] online profiles |
 | Key mapping | per key and per Fn key: any key + modifiers, combos (Ctrl+C…), disable, mouse buttons, media keys, lighting controls, profile switching, Space dual-role (hold = modifier), sleep, macros; online-only: open app/URL/file | [x] all offline actions (`bindings.py`, 199 + combos); [ ] online-only app/URL |
-| Lighting | effect library (183 `.le`, 6 shown to all models + category 840 for ours), main effect per profile, per-key press lighting, per-key static colors, effect editor (frames + color logic: static / cycle / breathing), standard-mode effect list (Fn+−/+) | [~] model facts + GUI explanation; on this model profiles have no lighting (`hasModeLe` false); [ ] standard-mode custom effects list + editor + preview |
+| Lighting | effect library (the UI's default list: 28 general + 3 for category 840 on ours), main effect per profile, per-key press lighting, per-key static colors, effect editor (frames + color logic: static / cycle / breathing), standard-mode effect list (Fn+−, 5 slots) | [x] library + live preview (`effects.Player` = app's cmleplayer), our editor (one color, key colors, breathing, cycle, rainbow wave, sweep), custom list (5 slots) CLI + GUI, .le import/export; [ ] first hardware write of the custom list (needs the user's OK: replaces their effects); per-profile lighting N/A on this model |
 | Macros | library (148 presets), recorder/editor (key/mouse down-up, delays), repeat count, stop mode, assign to keys | [x] CLI + GUI (recorder, step editor, text form, .cms import/export); hardware playback not yet verified |
 | Online mode | live per-key lighting effects rendered by the PC, macros/app launch on key press, game profiles (`Game`, `Application`) | [ ] (decide if wanted) |
 | Firmware update | (none in 8.0.7: `firmware.js` is empty) | N/A |
@@ -127,7 +127,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
       to standard with `opengk6x mode standard`. Lighting in profiles: see findings
 - [x] Bindings catalog, profile store (changes from the standard layout), macros, import/export (official + backup)
 - [ ] Verify on hardware: Fn-layer key, macro playback (incl. Fn-layer macro slots), Space dual-role, profile_N keys
-- [ ] Lighting: standard-mode custom effects list (Fn+−), effect editor + preview, online direct mode
+- [x] Lighting: custom effects list (standard profile `DriverLE`, mode 1, no `0B`), effect player/preview, editor
+- [ ] Verify the custom list on hardware (user's OK first); online direct mode (`1A`)
 
 ### Phase 3: App
 - [x] CLI (`info keys actions mode bind unbind profile macro export import setup-data`)
@@ -145,6 +146,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## Findings log
 <!-- Newest first. Format: YYYY-MM-DD: finding (source: capture/file/test) -->
+- 2026-10-11: **Effect playback** (app `cmleplayer.js`, 50 ms per tick): frames expanded by Count; a lit LED takes
+  the color of the first LEConfig listing it; type 1 turns the hue 360/Count° per tick, type 2 fades in over Count
+  ticks, holds StayCount, fades out, holds dark. The keyboard's frame data is only a bitmap of lit LEDs, so colors
+  come only from LEConfigs. The standard profile's custom list has **5 slots** in the UI (`DriverLE[0..4]`). The
+  library offered per keyboard is the UI bundle's default `les` list (53; `LeCate` = layout it was drawn for,
+  `LeType` combination = online-only); `setup-data` extracts it to `res/data/le/library.json`. (source: vendor-app)
 - 2026-10-11: **Leaving out the lighting packets keeps the profile's lighting.** Profile 1 rewritten without
   `21 m 05`/`26`/`21 m 06`/`27` (24 packets): the white effect the user had picked with Fn+=/− stayed. With them (the
   official app's way) the profile came up dark. (source: hardware + user)

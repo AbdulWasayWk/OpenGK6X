@@ -241,6 +241,69 @@ def cmd_macro_delete(args):
     store.save_macros(macros)
 
 
+# --- lighting ---------------------------------------------------------------------------------
+
+def _effects_by_name(store: Store, vendor: VendorData, model: int) -> list[tuple[str, str, str]]:
+    """(GUID, name, where) for the user's effects and the official library."""
+    mine = [(g, e.get("Name") or g, "mine") for g, e in store.effects().items()]
+    return mine + [(e["GUID"], e["Name"], "library") for e in vendor.effect_library(model)]
+
+
+def cmd_effects(args):
+    store, vendor = Store(), VendorData()
+    words = [w.lower() for w in args.search]
+    for guid, name, where in _effects_by_name(store, vendor, connected_model()):
+        if all(w in name.lower() for w in words):
+            print(f"{where:8} {name}")
+
+
+def cmd_lighting_show(args):
+    store, vendor = Store(), VendorData()
+    with wired_keyboard() as kb:
+        model, matrix = kb.model_id(), kb.matrix()
+    names = {g: n for g, n, _ in _effects_by_name(store, vendor, model)}
+    data = store.lighting(model)
+    print("Custom effects (Fn + −):")
+    for i, g in enumerate(data["custom"], 1):
+        print(f"  {i}. {names.get(g, g + ' (missing)')}")
+    if not data["custom"]:
+        print("  (none set)")
+    st = session.custom_status(store, vendor, model, matrix)
+    print({session.UNKNOWN: "Not written by OpenGK6X yet: the keyboard has its own (e.g. from the official app).",
+           session.APPLIED: "On the keyboard.",
+           session.CHANGED: "Changed since it was written (run: lighting apply)."}[st])
+
+
+def cmd_lighting_set(args):
+    store, vendor = Store(), VendorData()
+    model = connected_model()
+    known = _effects_by_name(store, vendor, model)
+    guids = []
+    for want in args.effects:
+        hits = [g for g, n, _ in known if n.lower() == want.lower() or g.lower() == want.lower()]
+        if not hits:
+            raise Abort(f"no effect called {want!r} (see `opengk6x effects`)")
+        guids.append(hits[0])
+    if len(guids) > 5:
+        raise Abort("the keyboard holds 5 custom effects")
+    data = store.lighting(model)
+    data["custom"] = guids
+    store.save_lighting(model, data)
+    print("Custom effects set; write them with: opengk6x lighting apply")
+
+
+def cmd_lighting_apply(args):
+    store, vendor = Store(), VendorData()
+    model = connected_model()
+    data = store.lighting(model)
+    if data["applied"] is None:
+        confirm("This replaces the custom effects stored in the keyboard (Fn + −), e.g. ones from the official app; "
+                "they can't be read back. Continue?", args.yes)
+    with wired_keyboard() as kb:
+        r = session.write_custom(kb, store, vendor, model, data["custom"])
+    print(f"wrote {len(data['custom'])} custom effects ({r.packets} packets, {r.seconds:.1f} s); cycle with Fn + −")
+
+
 # --- setup ------------------------------------------------------------------------------------
 
 def cmd_setup_data(args):
@@ -353,6 +416,16 @@ def main(argv=None):
     c = command(prof, "rename", cmd_profile_rename, "name a profile")
     c.add_argument("slot", choices=list(SLOT_MODES))
     c.add_argument("name")
+
+    c = command(sub, "effects", cmd_effects, "lighting effects: yours and the official library")
+    c.add_argument("search", nargs="*")
+    light = command(sub, "lighting", None, "the custom effects list (Fn + −)").add_subparsers(dest="action",
+                                                                                              required=True)
+    command(light, "show", cmd_lighting_show, "the custom effects list and whether the keyboard has it")
+    c = command(light, "set", cmd_lighting_set, "set the list (up to 5 effect names, in order)")
+    c.add_argument("effects", nargs="*")
+    c = command(light, "apply", cmd_lighting_apply, "write the list to the keyboard (replaces what it has)")
+    c.add_argument("--yes", "-y", action="store_true")
 
     mac = command(sub, "macro", None, "macro library").add_subparsers(dest="action", required=True)
     command(mac, "list", cmd_macro_list, "all macros")

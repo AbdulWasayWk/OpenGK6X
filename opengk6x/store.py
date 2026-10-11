@@ -87,6 +87,21 @@ class Store:
         d.mkdir(parents=True, exist_ok=True)
         (d / f"{effect['GUID']}.json").write_text(json.dumps(effect, ensure_ascii=False, indent=1))
 
+    # the custom effects list (Fn + −), stored in the keyboard's standard profile
+    def lighting(self, model: int) -> dict:
+        """{"custom": [GUID, ...] (up to 5), "applied": fingerprint | None (None: never written by OpenGK6X)}"""
+        f = self.root / str(model) / "lighting.json"
+        data = json.loads(f.read_text()) if f.is_file() else {}
+        return {"custom": list(data.get("custom", [])), "applied": data.get("applied")}
+
+    def save_lighting(self, model: int, data: dict):
+        f = self.root / str(model) / "lighting.json"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(data, indent=1))
+
+    def delete_effect(self, guid: str):
+        (self.root / "effects" / f"{guid}.json").unlink(missing_ok=True)
+
     # macros
     def _macros_file(self) -> Path:
         return self.root / "macros.json"
@@ -169,6 +184,26 @@ def presets(vendor, model: int) -> dict[str, Profile]:
             if int(e["Index"]) in names and v is not None and v != before.get(int(e["Index"])):
                 ours[names[int(e["Index"])]] = b.name(v & 0xFFFFFFFF)
     return {"Mac layout (the official app's profile 2 default)": out} if out.keys or out.fn_keys else {}
+
+
+def effect_loader(store: Store, vendor):
+    """GUID → effect JSON text: the user's effects first, then the official library."""
+    mine = store.effects()
+
+    def load(guid):
+        if guid in mine:
+            return json.dumps(mine[guid])
+        return vendor.effect(guid)
+    return load
+
+
+def compile_custom(store: Store, vendor, model: int, matrix: tuple[int, int], guids: list[str]) -> list[bytes]:
+    """The packets that replace the custom effects list (the standard profile's lighting). Effects that can't be
+    found are skipped, as the app does."""
+    from .effects import standard_profile
+    profile = standard_profile([{"GUID": g} for g in guids if g])
+    data = pr.build(profile, matrix, effect_loader(store, vendor), lambda g: None, lighting=True)
+    return pr.packets(data)
 
 
 def fingerprint(packets: list[bytes]) -> str:

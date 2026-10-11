@@ -60,6 +60,29 @@ class VendorData:
         path = self.root / "res/data/le" / f"{guid}.le"
         return cmf.decode_text(path.read_bytes()) if path.is_file() else None
 
+    def effect_library(self, model_id: int) -> list[dict]:
+        """The official library effects that suit this model: [{GUID, Name}], English names where known.
+        Leaves out online-only "combination" effects and ones drawn for other layouts (LeCate)."""
+        le = self.root / "res/data/le"
+        names = {}
+        for lang in ("lelist_zh.json", "lelist_en.json"):
+            try:
+                names.update({e["GUID"]: e["Name"].strip() for e in _read_json(le / lang)})
+            except (OSError, ValueError, KeyError):
+                pass
+        try:
+            listed = _read_json(le / "library.json")
+        except (OSError, ValueError):
+            listed = [{"GUID": g, "Name": n, "LeCate": None, "LeType": None} for g, n in names.items()]
+        cate = self.model_config(model_id).get("LeCate")
+        out = []
+        for e in listed:
+            if e.get("LeType") == "combination" or e.get("LeCate") not in (None, cate):
+                continue
+            if (le / f"{e['GUID']}.le").is_file():
+                out.append({"GUID": e["GUID"], "Name": names.get(e["GUID"], e.get("Name", "")).strip()})
+        return out
+
     def macro(self, guid: str) -> str | None:
         """A macro's script text, or None if the library doesn't have it."""
         path = self.root / "res/data/macro" / f"{guid}.cms"
