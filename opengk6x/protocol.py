@@ -22,13 +22,37 @@ PAYLOAD_LEN = REPORT_LEN - PAYLOAD_OFFSET   # 56 (0x38) bytes per report
 
 # Opcodes (byte 0)
 OP_INFO = 0x01
+OP_SET_MODE = 0x0B
 OP_PING = 0x0C
+OP_CLEAR = 0x21         # sub = mode, header = data type
+OP_KEYS = 0x22
+OP_LEDATA = 0x24        # per-key static colors
+OP_MACROS = 0x25
+OP_LIGHT_KEYS = 0x26    # key-press lighting index
+OP_LIGHT_DATA = 0x27
+OP_FN_KEYS = 0x31
 
 # OP_INFO sub-commands (byte 1)
 INFO_FIRMWARE = 0x01
 INFO_DEVICE_ID = 0x02
 INFO_MODEL = 0x08
 INFO_MATRIX = 0x09
+
+# Modes (profile slots) for OP_SET_MODE and profile writes
+MODE_STANDARD = 1
+MODE_OFFLINE = (2, 3, 4)    # offline profiles 1-3
+MODE_ONLINE = 5
+
+# OP_CLEAR data types
+DATA_KEYS = 1
+DATA_LEDATA = 3
+DATA_MACROS = 4
+DATA_LIGHT_KEYS = 5
+DATA_LIGHT_DATA = 6
+DATA_FN_KEYS = 7
+
+# Writes whose header is (len << 24) + 24-bit address; the others use (len << 16) + 16-bit address
+LONG_ADDRESS_OPS = {0x16, 0x1A, OP_LIGHT_DATA}
 
 RESULT_OK = 1
 
@@ -70,6 +94,26 @@ def is_reply(report: bytes, op: int, sub: int) -> bool:
 
 def payload(report: bytes) -> bytes:
     return bytes(report[PAYLOAD_OFFSET:REPORT_LEN])
+
+
+# --- Profile writes ----------------------------------------------------------------------------
+
+def set_mode(mode: int) -> bytes:
+    return packet(OP_SET_MODE, mode)
+
+
+def clear(mode: int, data_type: int) -> bytes:
+    return packet(OP_CLEAR, mode, struct.pack("<I", data_type))
+
+
+def chunks(op: int, mode: int, data: bytes) -> list[bytes]:
+    """Split `data` into write reports of up to 56 bytes, each carrying its address and length."""
+    shift = 24 if op in LONG_ADDRESS_OPS else 16
+    out = []
+    for addr in range(0, len(data), PAYLOAD_LEN):
+        part = data[addr:addr + PAYLOAD_LEN]
+        out.append(packet(op, mode, struct.pack("<I", (len(part) << shift) + addr), part))
+    return out
 
 
 # --- Info (handshake) --------------------------------------------------------------------------

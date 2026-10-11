@@ -1,0 +1,214 @@
+{
+ "GUID": "",
+ "ModeIndex": 3,
+ "Name": "full",
+ "KeySet": [
+  {
+   "Index": 1,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x02001400"
+  },
+  {
+   "Index": 2,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x02000601"
+  },
+  {
+   "Index": 3,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x030000E2"
+  },
+  {
+   "Index": 4,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x01010002"
+  },
+  {
+   "Index": 5,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x0A010001",
+   "Task": {
+    "Type": "Macro",
+    "Data": {
+     "GUID": "TEST-MACRO-COMBO",
+     "Repeats": 3,
+     "StopMode": 1
+    }
+   }
+  },
+  {
+   "Index": 6,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x0A010001",
+   "Task": {
+    "Type": "Macro",
+    "Data": {
+     "GUID": "TEST-MACRO-MOUSE",
+     "Repeats": "2",
+     "StopMode": 2
+    }
+   }
+  },
+  {
+   "Index": 7,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x0A010001",
+   "Task": {
+    "Type": "Macro",
+    "Data": {
+     "GUID": "TEST-MACRO-COMBO",
+     "Repeats": 3,
+     "StopMode": 1
+    }
+   }
+  },
+  {
+   "Index": 8,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x0a070002"
+  },
+  {
+   "Index": 9,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "C:\\Program Files\\app.exe"
+  },
+  {
+   "Index": 10,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x02000000",
+   "KeyLE": {
+    "GUID": "TEST-LE-PRESS",
+    "Name": ""
+   }
+  },
+  {
+   "Index": 11,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x02002C00",
+   "KeyLE": {
+    "GUID": "TEST-LE-PRESS",
+    "Name": ""
+   }
+  },
+  {
+   "Index": 12,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x0A0C0001",
+   "KeyLE": {
+    "GUID": "TEST-LE-BREATH",
+    "Name": ""
+   }
+  },
+  {
+   "Index": 13,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x02002900",
+   "KeyLE": {
+    "GUID": "TEST-LE-WAVE",
+    "Name": ""
+   }
+  },
+  {
+   "Index": "14",
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x02003A00"
+  },
+  {
+   "Index": 127,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x0c000002"
+  },
+  {
+   "Index": 200,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x02000400"
+  }
+ ],
+ "FnKeySet": [
+  {
+   "Index": 1,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x030000CD"
+  },
+  {
+   "Index": 2,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x0A010001",
+   "Task": {
+    "Type": "Macro",
+    "Data": {
+     "GUID": "TEST-MACRO-COMBO",
+     "Repeats": 3,
+     "StopMode": 1
+    }
+   }
+  },
+  {
+   "Index": 3,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x09020001"
+  }
+ ],
+ "ModeLE": {
+  "GUID": "TEST-LE-WAVE",
+  "Name": "wave",
+  "Params": {
+   "LEConfigs": [
+    {
+     "Color": "0x111111"
+    },
+    {
+     "Color": "0x222222"
+    },
+    {
+     "Color": "0x333333"
+    }
+   ]
+  }
+ },
+ "LEData": {
+  "0": "0xff0000",
+  "5": "0x00ff00",
+  "175": "0x0000ff",
+  "176": "0xffffff",
+  "x": "0x123456"
+ }
+}

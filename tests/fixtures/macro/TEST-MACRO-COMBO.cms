@@ -1,0 +1,18 @@
+[General]
+Name=test combo
+ScriptID=TEST-MACRO-COMBO
+Repeats=1
+StopMode=1
+
+[Script]
+KeyDown "Left Ctrl"
+Delay 20
+KeyDown "C"
+Delay 300
+KeyUp "C"
+KeyUp "Left Ctrl"
+KeyDown "Shift"
+KeyDown "Num 5"
+KeyUp "Num 5"
+KeyUp "Shift"
+Delay 1000

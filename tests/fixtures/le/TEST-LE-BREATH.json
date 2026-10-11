@@ -1,0 +1,3 @@
+{"GUID": "TEST-LE-BREATH", "Name": "test breath",
+ "Frames": [{"Count": 3, "Name": "f0", "Data": {"5": "0xffffff", "6": "0xffffff"}}],
+ "LEConfigs": [{"Type": 2, "Count": 20, "StayCount": 0, "Color": "0xFFFFFF", "Keys": [5, 6]}]}

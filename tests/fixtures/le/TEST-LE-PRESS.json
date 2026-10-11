@@ -1,0 +1,3 @@
+{"GUID": "TEST-LE-PRESS", "Name": "test press",
+ "Frames": [{"Count": 1, "Name": "f0", "Data": {"10": "0xffffff"}}, {"Count": 4, "Name": "f1", "Data": {"11": "0xffffff", "12": "0xffffff"}}],
+ "LEConfigs": [{"Type": 1, "Count": 12, "Color": "0xFF0000", "Keys": [10, 11, 12]}, {"Type": 0, "Count": 1, "Color": "0x123456", "Keys": [13]}]}

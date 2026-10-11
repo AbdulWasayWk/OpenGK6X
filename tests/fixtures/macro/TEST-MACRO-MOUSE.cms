@@ -1,0 +1,19 @@
+﻿[General]
+Name=test mouse
+ScriptID=TEST-MACRO-MOUSE
+Repeats=1
+StopMode=1
+
+[Script]
+LeftDown
+Delay 15
+LeftUp
+RightDown
+RightUp
+MiddleDown
+Wheel 1
+KeyDown "Right Win"
+KeyUp "Right Win"
+KeyDown "F12"
+KeyUp "F12"
+KeyDown "Unknown"

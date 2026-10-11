@@ -1,0 +1,7 @@
+{"GUID": "TEST-LE-WAVE", "Name": "test wave",
+ "Frames": [{"Count": 2, "Name": "f0", "Data": {"0": "0xff0000", "22": "0xff0000", "175": "0xff0000", "176": "0xff0000"}},
+            {"Name": "f1", "Data": {"1": "0x00ff00", "23": "0x00ff00"}},
+            {"Count": 1.0, "Name": "f2", "Data": {}}],
+ "LEConfigs": [{"Type": 0, "Count": 1, "Color": "0xFF8000", "Keys": [0, 1, 22, 23]},
+               {"Type": 1, "Count": 30, "Color": "0x00FF00", "Keys": [44, 66, "88", 200]},
+               {"Type": 2, "Count": 7, "StayCount": 3, "Color": "0x0000FF", "Keys": [110, 175]}]}

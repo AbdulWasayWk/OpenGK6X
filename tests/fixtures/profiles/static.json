@@ -1,0 +1,24 @@
+{
+ "GUID": "",
+ "ModeIndex": 4,
+ "Name": "static",
+ "KeySet": [
+  {
+   "Index": 1,
+   "MenuPID": "",
+   "MenuID": "",
+   "MenuName": "",
+   "DriverValue": "0x02001500"
+  }
+ ],
+ "ModeLE": {
+  "GUID": "",
+  "Name": "",
+  "LEData": {
+   "0": "0xff0000",
+   "1": "0x00ff00",
+   "100": "0x0a0b0c",
+   "300": "0xffffff"
+  }
+ }
+}
