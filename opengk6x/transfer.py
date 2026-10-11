@@ -148,7 +148,7 @@ def read_official(paths: list[Path], model: int, vendor) -> Imported:
         slot = _SLOTS[mode]
         if slot in out.profiles:
             out.notes.append(f"{label}: another profile for slot {slot}; this one replaces the earlier one")
-        out.profiles[slot] = profile_from_official(official, vendor.default_profile(model, slot), keymap,
+        out.profiles[slot] = profile_from_official(official, vendor.base_profile(model), keymap,
                                                    macro_names, out.notes)
         if not out.profiles[slot].name:
             out.profiles[slot].name = f"Profile {slot}"
@@ -245,7 +245,7 @@ def write_official(store: Store, model: int, vendor, out_dir: Path) -> tuple[lis
         keymap = vendor.keymap(model)
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
             for slot, prof in profiles.items():
-                official = to_official(prof, slot, vendor.default_profile(model, slot), keymap)
+                official = to_official(prof, slot, vendor.base_profile(model), keymap)
                 guid = guid_for("profile", f"{model}:{slot}")
                 official.update(GUID=guid, ModelID=model, Active=0)
                 for layer in ("KeySet", "FnKeySet"):

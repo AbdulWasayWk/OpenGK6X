@@ -141,7 +141,7 @@ def to_official(profile: Profile, slot: str, default: dict, keymap: list[dict]) 
 def compile_packets(profile: Profile, slot: str, vendor, model: int, matrix: tuple[int, int],
                     macros: dict[str, Macro]) -> list[bytes]:
     """The packets that write `profile` into `slot` (ends by switching the keyboard to it)."""
-    official = to_official(profile, slot, vendor.default_profile(model, slot), vendor.keymap(model))
+    official = to_official(profile, slot, vendor.base_profile(model), vendor.keymap(model))
     has_lighting = bool(vendor.model_config(model).get("hasModeLe"))
 
     def load_macro(name):
@@ -151,6 +151,24 @@ def compile_packets(profile: Profile, slot: str, vendor, model: int, matrix: tup
 
     data = pr.build(official, matrix, vendor.effect, load_macro, lighting=has_lighting)
     return pr.packets(data)
+
+
+def presets(vendor, model: int) -> dict[str, Profile]:
+    """Ready-made starting points besides the standard layout: the official app's Mac layout (its profile 2
+    default), as changes from the standard layout. Keys the picture doesn't have are left out."""
+    from .profile import js_parse_int
+    from . import bindings as b
+    names = {k["LogicCode"]: k["KeyName"] for k in vendor.keymap(model)}
+    base = vendor.base_profile(model)
+    mac = vendor.default_profile(model, "2")
+    out = Profile(name="Mac")
+    for layer, ours in (("KeySet", out.keys), ("FnKeySet", out.fn_keys)):
+        before = {int(e["Index"]): js_parse_int(e.get("DriverValue"), 16) for e in base.get(layer) or []}
+        for e in mac.get(layer) or []:
+            v = js_parse_int(e.get("DriverValue"), 16)
+            if int(e["Index"]) in names and v is not None and v != before.get(int(e["Index"])):
+                ours[names[int(e["Index"])]] = b.name(v & 0xFFFFFFFF)
+    return {"Mac layout (the official app's profile 2 default)": out} if out.keys or out.fn_keys else {}
 
 
 def fingerprint(packets: list[bytes]) -> str:

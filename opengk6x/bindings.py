@@ -184,3 +184,31 @@ def label(value: int) -> str:
         return "Macro"
     return f"0x{value:08X}"
 
+
+
+_CAP = {0x030000E2: "Mute", 0x030000E9: "Vol +", 0x030000EA: "Vol −", 0x030000CD: "Play", 0x030000B5: "Next",
+        0x030000B6: "Prev", 0x030000B7: "Stop", 0x030000CC: "Eject", 0x03000183: "Media", 0x0300018A: "Mail",
+        0x03000192: "Calc", 0x03000194: "Files", 0x03000221: "Search", 0x03000223: "Web", 0x03000224: "Back",
+        0x03000225: "Fwd", 0x03000226: "Stop", 0x03000227: "Reload", 0x0300022A: "Favs",
+        0x01010001: "LMB", 0x01010002: "RMB", 0x01010004: "MMB", 0x01010008: "M4", 0x01010010: "M5",
+        0x09010010: "RGB ⇄", 0x09010011: "Key RGB", 0x09020001: "Bright +", 0x09020002: "Bright −",
+        0x09030001: "Speed +", 0x09030002: "Speed −", 0x09060001: "RGB ⏸", 0x09060002: "RGB ⏻",
+        0x0A070001: "→ Std", 0x0A070002: "→ P1", 0x0A070003: "→ P2", 0x0A070004: "→ P3", 0x0C000002: "Sleep",
+        DISABLED: "✕"}
+
+
+_KEYCAP = {0x46: "PrtSc", 0x47: "ScrLk", 0x49: "Ins", 0x4B: "PgUp", 0x4C: "Del", 0x4E: "PgDn", 0x53: "NumLk"}
+
+
+def cap_label(value: int) -> str:
+    """A short label that fits on a keycap."""
+    if value in _CAP:
+        return _CAP[value]
+    if value >> 8 & 0xFF in _KEYCAP and value & 0xFFFF00FF == 0x02000000:
+        return _KEYCAP[value >> 8 & 0xFF]
+    if value & 0xFFFFFF00 == 0x02000000 and value & 0xFF in (1, 2, 4, 8, 16, 32, 64, 128):
+        return {1: "Ctrl", 2: "Shift", 4: "Alt", 8: "Super"}[value & 0x0F or value >> 4 & 0x0F]
+    if value >> 16 == 0x0A0C:
+        mods = value & 0xFF
+        return "Spc/" + "+".join(_MOD_SHORT[n] for n, _ in MODIFIERS if mods & MODIFIER_BITS[n])
+    return label(value)

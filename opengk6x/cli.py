@@ -1,19 +1,16 @@
 """`opengk6x …` command line."""
 import argparse
-import os
 import sys
-import time
 from pathlib import Path
 
 from . import bindings as b
 from . import device
 from . import protocol as p
-from . import transfer
+from . import session, transfer
 from .macros import REPEAT_MODES, Macro, parse_text, to_text
-from .store import SLOT_MODES, Profile, Store, check_binding, compile_packets, fingerprint
+from .store import SLOT_MODES, Profile, Store, check_binding, compile_packets
 from .vendordata import VendorData, VendorDataMissing
 
-STATE = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "opengk6x"
 MODES = {"standard": p.MODE_STANDARD, **SLOT_MODES}
 
 
@@ -21,11 +18,7 @@ class Abort(Exception):
     pass
 
 
-def wired_keyboard() -> device.Keyboard:
-    found = [f for f in device.find() if f.pid == p.PID_WIRED]
-    if not found:
-        raise device.DeviceError("keyboard not found on the cable (USB 1ea7:0907); configuration needs the cable")
-    return device.Keyboard(found[0])
+wired_keyboard = session.open_wired
 
 
 def connected_model() -> int:
@@ -110,39 +103,21 @@ def cmd_mode(args):
 
 # --- profiles -----------------------------------------------------------------------------------
 
-def _status(prof: Profile | None, current: str | None) -> str:
-    if prof is None:
-        return "not set up by OpenGK6X (the keyboard may hold older settings)"
-    if prof.applied is None:
-        return "not written to the keyboard yet"
-    return "on the keyboard" if prof.applied == current else "changed since it was written (run: profile apply)"
-
-
 def _apply(store: Store, model: int, slot: str, profiles: dict, *, yes: bool, dry_run: bool = False):
     """Write a stored profile to the keyboard and remember what was written."""
     vendor = VendorData()
-    prof = profiles[slot]
     with wired_keyboard() as kb:
-        if kb.model_id() != model:
-            raise Abort("a different keyboard is connected")
-        packets = compile_packets(prof, slot, vendor, model, kb.matrix(), store.macros())
         if dry_run:
-            print(f"profile {slot}: {len(packets)} packets (dry run, nothing sent)")
+            n = len(compile_packets(profiles[slot], slot, vendor, model, kb.matrix(), store.macros()))
+            print(f"profile {slot}: {n} packets (dry run, nothing sent)")
             return
-        if prof.applied is None:
+        if profiles[slot].applied is None:
             confirm(f"Profile {slot} hasn't been written by OpenGK6X before. Writing replaces whatever the keyboard "
                     f"has in it (e.g. settings from the official app). Continue?", yes)
-        t = time.monotonic()
-        replies = kb.write(packets)
-    rejected = [r for r in replies if r[0] in (p.OP_CLEAR, p.OP_KEYS, p.OP_FN_KEYS, p.OP_MACROS) and r[1] != 0]
-    prof.applied = fingerprint(packets)
-    store.save_profiles(model, profiles)
-    log = STATE / str(model) / f"profile-{slot}.log"
-    log.parent.mkdir(parents=True, exist_ok=True)
-    log.write_text("".join(f"> {a.hex()}\n< {r.hex()}\n" for a, r in zip(packets, replies)))
-    print(f"wrote profile {slot} ({len(packets)} packets, {time.monotonic() - t:.1f} s); the keyboard is now on it")
-    if rejected:
-        print(f"warning: the keyboard answered {len(rejected)} packets with an unexpected status; see {log}",
+        r = session.write_profile(kb, store, vendor, model, slot, profiles)
+    print(f"wrote profile {slot} ({r.packets} packets, {r.seconds:.1f} s); the keyboard is now on it")
+    if r.unexpected:
+        print(f"warning: the keyboard answered {r.unexpected} packets with an unexpected status; see {r.log}",
               file=sys.stderr)
 
 
@@ -156,16 +131,14 @@ def _load(args, store: Store, model: int, create: bool = False):
 
 
 def cmd_profile_list(args):
-    store, model = Store(), connected_model()
-    vendor = VendorData()
+    store, vendor = Store(), VendorData()
+    with wired_keyboard() as kb:
+        model, matrix = kb.model_id(), kb.matrix()
     for slot, prof in store.profiles(model).items():
-        current = None
-        if prof and prof.applied:
-            with wired_keyboard() as kb:
-                current = fingerprint(compile_packets(prof, slot, vendor, model, kb.matrix(), store.macros()))
         title = f"{prof.name}" if prof and prof.name else ""
         changes = f", {len(prof.keys) + len(prof.fn_keys)} changed keys" if prof else ""
-        print(f"profile {slot}: {title}{' — ' if title else ''}{_status(prof, current)}{changes}")
+        state = session.STATUS_TEXT[session.status(store, vendor, model, slot, prof, matrix)]
+        print(f"profile {slot}: {title}{' — ' if title else ''}{state}{changes}")
 
 
 def cmd_profile_show(args):
@@ -268,6 +241,14 @@ def cmd_macro_delete(args):
     store.save_macros(macros)
 
 
+# --- setup ------------------------------------------------------------------------------------
+
+def cmd_setup_data(args):
+    from .vendorsetup import DATA_DIR, install
+    r = install(Path(args.installer), Path(args.dest) if args.dest else DATA_DIR)
+    print(f"Copied {r['files']} files ({r['models']} keyboard models) into {r['dir']}")
+
+
 # --- import / export ----------------------------------------------------------------------------
 
 def cmd_export(args):
@@ -332,6 +313,10 @@ def main(argv=None):
         c.add_argument("--no-apply", action="store_true", help="only save; write to the keyboard later")
         c.add_argument("--yes", "-y", action="store_true", help="don't ask before replacing unknown keyboard data")
 
+    c = command(sub, "setup-data", cmd_setup_data, "copy the keyboard model data out of the official app's "
+                "installer (GK6X Setup 8.0.7.exe or its .zip); needed once")
+    c.add_argument("installer")
+    c.add_argument("--dest", help=argparse.SUPPRESS)
     command(sub, "info", cmd_info, "model and firmware of each connected keyboard (read-only)")
     command(sub, "keys", cmd_keys, "key names of the connected keyboard")
     c = command(sub, "actions", cmd_actions, "what a key can be bound to")
@@ -394,7 +379,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
     try:
         return args.func(args) or 0
-    except (device.DeviceError, VendorDataMissing, ValueError, Abort) as e:
+    except (device.DeviceError, VendorDataMissing, ValueError, Abort, RuntimeError, OSError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 1
 

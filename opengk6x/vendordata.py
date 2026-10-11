@@ -50,6 +50,11 @@ class VendorData:
         name = "profile_online_1.json" if slot == "online" else f"profile_offline_{slot}.json"
         return _read_json(self.model_dir(model_id) / "data" / name)
 
+    def base_profile(self, model_id: int) -> dict:
+        """What every OpenGK6X profile starts from: the standard layout (the official profile 1 default). The
+        official defaults for profiles 2 and 3 differ (a Mac layout; Backspace = Delete); see store.presets."""
+        return self.default_profile(model_id, "1")
+
     def effect(self, guid: str) -> str | None:
         """A lighting effect's JSON text, or None if the library doesn't have it."""
         path = self.root / "res/data/le" / f"{guid}.le"

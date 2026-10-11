@@ -66,6 +66,11 @@ class TestMacros(unittest.TestCase):
         self.assertEqual(m.to_text(steps), "+ctrl c -ctrl 100ms enter click:left +shift")
         with self.assertRaises(ValueError):
             m.parse_text("click:middle")
+        self.assertEqual(m.parse_text("ctrl+shift+t"), m.parse_text("+ctrl +shift t -shift -ctrl"))
+        with self.assertRaises(ValueError):
+            m.parse_text("+ctrl+v")
+        with self.assertRaises(ValueError):
+            m.validate_step({"key": "ctrl+v", "action": "down"})
 
     def test_actions(self):
         steps = m.parse_text("+ctrl c -ctrl 300ms click:right")

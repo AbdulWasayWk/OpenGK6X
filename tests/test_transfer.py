@@ -18,7 +18,7 @@ class FakeVendor:
     def keymap(self, model):
         return KEYMAP
 
-    def default_profile(self, model, slot):
+    def base_profile(self, model):
         return json.loads(json.dumps(DEFAULT))
 
 

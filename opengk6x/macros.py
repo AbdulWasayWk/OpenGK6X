@@ -4,7 +4,8 @@ Steps (JSON): {"key": "a", "action": "down"|"up"}, {"mouse": "left"|"right", "ac
 {"delay": 50} (ms). Keys are binding names (bindings.KEYS) or modifiers ("lctrl", "rshift", …).
 
 Compact text (CLI): "+ctrl c -ctrl 100ms enter click:left" = press ctrl, tap c, release ctrl, wait 100 ms,
-tap enter, click the left button. `+x` press, `-x` release, `x` tap, `Nms` wait, `click:b` / `+click:b` / `-click:b`.
+tap enter, click the left button. `+x` press, `-x` release, `x` tap, `Nms` wait, `click:b` / `+click:b` / `-click:b`,
+and `ctrl+v` = hold ctrl, tap v, release ctrl.
 """
 import re
 from dataclasses import dataclass, field
@@ -50,8 +51,10 @@ def validate_step(step: dict):
             raise ValueError(f"mouse button must be left or right: {step}")
         return
     key = step.get("key", "")
-    if key not in b.MODIFIER_BITS and b.parse(key) >> 16 != 0x0200:
-        raise ValueError(f"not a key: {step}")
+    if key not in b.MODIFIER_BITS:
+        value = b.parse(key)
+        if value >> 16 != 0x0200 or value & 0xFF or not value >> 8 & 0xFF:
+            raise ValueError(f"not a single key: {step}")
 
 
 def to_actions(steps: list[dict]) -> list[tuple]:
@@ -87,6 +90,19 @@ def parse_text(text: str) -> list[dict]:
         actions = {"+": ["down"], "-": ["up"], "": ["down", "up"]}[prefix]
         if body.startswith("click:"):
             target = {"mouse": body[6:]}
+        elif "+" in body and len(body) > 1:
+            if prefix:
+                raise ValueError(f"{tok}: a shortcut can only be tapped (write it without + or -)")
+            value = b.parse(body)
+            if value >> 16 != 0x0200:
+                raise ValueError(f"{tok} isn't a key combination")
+            mods = [n for n, _ in b.MODIFIERS if value & b.MODIFIER_BITS[n]]
+            usage = value >> 8 & 0xFF
+            steps += [{"key": m, "action": "down"} for m in mods]
+            if usage:
+                steps += [{"key": b.KEYS[usage][0], "action": a} for a in ("down", "up")]
+            steps += [{"key": m, "action": "up"} for m in reversed(mods)]
+            continue
         else:
             target = {"key": b.MODIFIER_ALIASES.get(body, body)}
             if target["key"] not in b.MODIFIER_BITS:

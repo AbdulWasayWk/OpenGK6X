@@ -17,5 +17,8 @@ classifiers = ["Operating System :: POSIX :: Linux", "Topic :: System :: Hardwar
 [project.scripts]
 opengk6x = "opengk6x.cli:main"
 
+[project.gui-scripts]
+opengk6x-gui = "opengk6x.gui.app:main"
+
 [tool.setuptools.packages.find]
 include = ["opengk6x*"]
