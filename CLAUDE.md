@@ -118,6 +118,8 @@ The app is **done** when every item below is checked. Keep this list current.
       install-user.sh (checks deps, optional official zip → setup-data, udev hint, --remove incl. live autostart;
       installed for the user); PKGBUILD verified from a fresh GitHub clone (46 tests, package contents);
       udev rule installed; GitHub: github.com/AbdulWasayWk/OpenGK6X (pushed)
+- [x] Knob options (user request 2026-10-12, as in the official app): turn left / turn right / press as separate
+      choices on the Keys page (Knob row above the picture; normal and Fn layer), CLI `knob-left/-right/-press`
 - [x] Wireless: profiles 1–3 aren't used over 2.4 GHz; **the Standard profile is** and its keys are now editable
       (keys only: macros/Fn layer refused). Custom effects carry over. Configuration needs the cable.
 
@@ -265,6 +267,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
   form the keyboard itself uses. (source: OpenRGB SkyloongGK104ProController.cpp)
 
 ## Decision log
+- 2026-10-12: **Knob row on the Keys page** (`Layout.knob` maps left/right/press → key-map names; shown only for
+  layouts with a knob). Each direction is a drop-down of common knob actions (`layouts.KNOB_ACTIONS`) + "Default" +
+  "Other…" (selects that knob key so the full action list is used). Same data as clicking the knob keys in the picture.
 <!-- Newest first. Format: YYYY-MM-DD: decision; reason -->
 - 2026-10-11: **Standard profile editable (keys only)**, first tab in the GUI, `bind standard …` in the CLI; profiles
   1–3 say they're cable-only on the GK104 Pro (`Layout.wireless_standard_only`). Reason: the user wants remaps on
@@ -294,9 +299,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - Keep this file current: update status, findings and decisions in the same session the work happens.
 - Hardware writes follow the official app's exact packets (code + capture). Never fuzz unknown commands.
   Read-only queries first; verify each write by reading it back where the firmware allows it.
-- **This is the user's only keyboard.** A bad keymap can leave them unable to type. Like the official app, write
-  keys only to offline profiles 1–3 (modes 2–4), never the standard layer (mode 1). Switch back to standard with
-  `0B 01` from the CLI (mouse-only) or the keyboard; last resort **Fn+Esc+Q** (factory reset).
+- **This is the user's only keyboard.** A bad keymap can leave them unable to type. Never write a layout that
+  leaves no way back (keep Fn and a way to reach the Standard profile). Switch back to standard with `0B 01` from
+  the CLI (mouse-only) or the keyboard; last resort **Fn+Esc+Q** (factory reset).
 - The Standard profile's **keys** are written like a profile (clear + table + `0B 01`); never its Fn layer or
   macros (refused anyway). Confirm before the first write (it changes the keyboard's own layout).
 - **Don't write the standard profile's lighting (mode 1, `21 01 06` / `27 01`) without the user's explicit OK**:

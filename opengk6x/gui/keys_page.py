@@ -11,6 +11,9 @@ from .binding_picker import BindingPicker
 from .common import AppState, confirm, error, heading, hint
 from .keyboard_view import KeyboardView, KeyLook
 
+KNOB_HELP = {"left": "What turning the knob to the left does", "right": "What turning the knob to the right does",
+             "press": "What pressing the knob does"}
+
 STATUS_STYLE = {session.APPLIED: ("●", "#2e9d4f"), session.CHANGED: ("●", "#d08a1a"),
                 session.NOT_WRITTEN: ("●", "#d08a1a"), session.UNKNOWN: ("○", "palette(placeholder-text)")}
 
@@ -84,6 +87,24 @@ class KeysPage(QWidget):
         layer_row.addSpacing(12)
         layer_row.addWidget(hint("Click a key to change what it does. Highlighted keys differ from the default."), 1)
         lay.addLayout(layer_row)
+
+        # the knob's three actions, for keyboards that have one
+        self.knob_box = QWidget()
+        kl = QHBoxLayout(self.knob_box)
+        kl.setContentsMargins(0, 0, 0, 0)
+        self.knob_title = QLabel()
+        kl.addWidget(self.knob_title)
+        self.knob_combos: dict[str, QComboBox] = {}
+        for role, text in layouts.KNOB_ROLES.items():
+            kl.addSpacing(12)
+            kl.addWidget(QLabel(text))
+            combo = QComboBox()
+            combo.setMinimumWidth(190)
+            combo.activated.connect(lambda _i, r=role: self._knob_chosen(r))
+            kl.addWidget(combo)
+            self.knob_combos[role] = combo
+        kl.addStretch(1)
+        lay.addWidget(self.knob_box)
 
         self.view = KeyboardView()
         self.view.key_clicked.connect(self._select)
@@ -226,6 +247,7 @@ class KeysPage(QWidget):
         else:
             self.lower.setCurrentIndex(0)
         self._update_keys()
+        self._fill_knob()
         self._update_editor()
 
     def _update_keys(self):
@@ -315,16 +337,66 @@ class KeysPage(QWidget):
         self._update_editor()
 
     def _assign(self, binding):
+        if self.selected and self.selected != "Fn":
+            self._set_binding(self.selected, binding)
+
+    def _set_binding(self, name: str, binding):
+        """Bind `name` on the current layer; a binding equal to the default (or None) removes the change."""
         prof = self._profile()
-        if prof is None or self.selected is None or self.selected == "Fn":
+        if prof is None:
             return
         layer = prof.fn_keys if self.fn else prof.keys
-        default = self.state.default_binding(self.slot, self.selected, self.fn)
-        if not isinstance(binding, dict) and default is not None and b.parse(binding) == default:
-            layer.pop(self.selected, None)              # same as the default: no change to keep
+        default = self.state.default_binding(self.slot, name, self.fn)
+        if binding is None or (not isinstance(binding, dict) and default is not None and b.parse(binding) == default):
+            layer.pop(name, None)                       # same as the default: no change to keep
         else:
-            layer[self.selected] = binding
+            layer[name] = binding
         self.state.save_profiles()
+
+    # --- knob ------------------------------------------------------------------------------------
+    def _fill_knob(self):
+        keys = layouts.knob_keys(self.state.layout)
+        prof = self._profile()
+        present = {k["KeyName"] for k in self.state.keymap}
+        show = bool(keys) and prof is not None and all(n in present for n in keys.values())
+        self.knob_box.setVisible(show)
+        if not show:
+            return
+        self.knob_title.setText("<b>Knob</b>" + (" (with Fn held)" if self.fn else ""))
+        layer = prof.fn_keys if self.fn else prof.keys
+        texts = {b.parse(value): text for value, text in layouts.KNOB_ACTIONS}
+        for role, combo in self.knob_combos.items():
+            name = keys[role]
+            default = self.state.default_binding(self.slot, name, self.fn)
+            current = layer.get(name)
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItem(f"Default ({texts.get(default) or b.label(default)})" if default is not None else "Default",
+                          "__default__")
+            selected = 0
+            for value, text in layouts.KNOB_ACTIONS:
+                combo.addItem(text, value)
+                if isinstance(current, str) and b.parse(current) == b.parse(value):
+                    selected = combo.count() - 1
+            if current is not None and selected == 0:
+                combo.addItem(describe(current), "__custom__")
+                selected = combo.count() - 1
+            combo.addItem("Other…", "__other__")
+            combo.setCurrentIndex(selected)
+            combo.setToolTip(f"{KNOB_HELP[role]}. “Other…” picks any action from the list below.")
+            combo.blockSignals(False)
+
+    def _knob_chosen(self, role: str):
+        name = layouts.knob_keys(self.state.layout)[role]
+        data = self.knob_combos[role].currentData()
+        if data == "__other__":
+            self._select(name)                          # the full list below, for this knob action
+            self.picker.search.setFocus()
+            self._fill_knob()
+            return
+        if data == "__custom__":
+            return
+        self._set_binding(name, None if data == "__default__" else data)
 
     def _press_effect_changed(self):
         prof = self._profile()
@@ -396,7 +468,7 @@ class KeysPage(QWidget):
         if prof.applied is None:
             if self.slot == STANDARD:
                 text = ("This changes the keyboard's own layout (the Standard profile), which it also uses over "
-                        "2.4 GHz and Bluetooth. Holding Fn + Esc resets it to the factory layout.")
+                        "2.4 GHz and Bluetooth. Holding Fn + Esc + Q resets it to the factory layout.")
             else:
                 text = (f"OpenGK6X hasn't written profile {self.slot} before. Writing replaces whatever the keyboard "
                         "has in it, for example settings from the official app.")

@@ -31,6 +31,10 @@ def key_name(keymap: list[dict], text: str) -> str:
     split-spacebar variants), case-insensitive; "#N" = matrix index N."""
     t = text.strip().lower()
     from .layouts import LAYOUTS
+    role = {"knob-left": "left", "knob-right": "right", "knob-press": "press"}.get(t.replace("_", "-").replace(" ", "-"))
+    for layout in LAYOUTS.values():                     # knob-left / knob-right / knob-press
+        if role and layout.knob.get(role) and any(k["KeyName"] == layout.knob[role] for k in keymap):
+            return layout.knob[role]
     for layout in LAYOUTS.values():                     # knob names as shown in the app ("Knob ⟳")
         for name, place in layout.show.items():
             if place.label.lower() == t and any(k["KeyName"] == name for k in keymap):
@@ -129,7 +133,7 @@ def _apply(store: Store, model: int, slot: str, profiles: dict, *, yes: bool, dr
         if profiles[slot].applied is None:
             if slot == "standard":
                 confirm("This changes the keyboard's own (standard) layout, which it also uses over 2.4 GHz and "
-                        "Bluetooth. Holding Fn + Esc resets it to the factory layout. Continue?", yes)
+                        "Bluetooth. Holding Fn + Esc + Q resets it to the factory layout. Continue?", yes)
             else:
                 confirm(f"Profile {slot} hasn't been written by OpenGK6X before. Writing replaces whatever the "
                         f"keyboard has in it (e.g. settings from the official app). Continue?", yes)

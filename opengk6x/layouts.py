@@ -25,6 +25,7 @@ class Layout:
     screen_over: tuple[str, ...] = ()                          # keys whose area is a screen instead
     unsupported: frozenset[str] = frozenset()                  # binding categories the firmware ignores
     wireless_standard_only: bool = False                       # over 2.4 GHz / Bluetooth only the standard profile
+    knob: dict[str, str] = field(default_factory=dict)         # "left" / "right" / "press" → key-map name
 
 
 NAV = ("Insert", "Home", "Page Up", "Delete", "End", "Page Down")
@@ -38,11 +39,33 @@ LAYOUTS = {
               "Scroll Lock VOLD": Place("Pause", "Knob ⟳", True)},
         screen_over=NAV,
         unsupported=frozenset({"Space dual-role"}),      # tested 2026-10-11: long press just repeats Space
-        wireless_standard_only=True),                    # tested 2026-10-11: profile 1 remaps not used on 2.4 GHz
+        wireless_standard_only=True,                     # tested 2026-10-11: profile 1 remaps not used on 2.4 GHz
+        knob={"left": "Scroll Lock VOLU", "right": "Scroll Lock VOLD", "press": "Scroll Lock MUTE"}),   # tested
     "full": Layout("Full-size, 104 keys"),
     "all": Layout("Every key in the template (knob positions, split spacebar)"),
 }
 DEFAULT = {656802056: "gk104pro"}
+
+KNOB_ROLES = {"left": "Turn left", "right": "Turn right", "press": "Press"}
+
+# Actions offered for a knob (binding names); any other action can still be picked from the full list
+KNOB_ACTIONS = [
+    ("volume_down", "Volume down"), ("volume_up", "Volume up"), ("mute", "Mute"),
+    ("brightness_down", "Brightness −"), ("brightness_up", "Brightness +"), ("lighting_toggle", "Lighting on/off"),
+    ("lighting_pause", "Pause lighting"), ("effect_slower", "Effect speed −"), ("effect_faster", "Effect speed +"),
+    ("previous_track", "Previous track"), ("next_track", "Next track"), ("play_pause", "Play / pause"),
+    ("ctrl+minus", "Zoom out (Ctrl −)"), ("ctrl+equal", "Zoom in (Ctrl +)"), ("ctrl+0", "Reset zoom (Ctrl 0)"),
+    ("left", "Arrow left"), ("right", "Arrow right"), ("up", "Arrow up"), ("down", "Arrow down"),
+    ("pageup", "Page up"), ("pagedown", "Page down"),
+    ("ctrl+shift+tab", "Previous tab"), ("ctrl+tab", "Next tab"),
+    ("ctrl+z", "Undo"), ("ctrl+shift+z", "Redo"),
+    ("mouse_middle", "Middle click"), ("enter", "Enter"), ("disabled", "Nothing"),
+]
+
+
+def knob_keys(name: str) -> dict[str, str]:
+    """role → key-map name for the layout's knob ({} if it has none)."""
+    return dict(LAYOUTS.get(name, LAYOUTS["full"]).knob)
 
 
 def default_layout(model: int | None) -> str:

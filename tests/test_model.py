@@ -168,6 +168,13 @@ class TestModels(unittest.TestCase):
         self.assertEqual(untouched["ModeLE"], DEFAULT["ModeLE"])
         self.assertEqual(Profile.from_json(prof.to_json()), prof)
 
+    def test_knob(self):
+        from opengk6x import layouts
+        self.assertEqual(set(layouts.knob_keys("gk104pro")), set(layouts.KNOB_ROLES))
+        self.assertEqual(layouts.knob_keys("full"), {})
+        values = [b.parse(v) for v, _ in layouts.KNOB_ACTIONS]      # every choice is a known action, once
+        self.assertEqual(len(values), len(set(values)))
+
 
 if __name__ == "__main__":
     unittest.main()

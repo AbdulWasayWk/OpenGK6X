@@ -17,6 +17,9 @@ Bluetooth.
   - media keys, browser keys, calculator, mouse buttons, sleep
   - lighting controls (brightness, effect speed, on/off)
   - **switch profile** keys
+- **The knob** (GK104 Pro): separate choices for turning it left, turning it right and pressing it, with and
+  without Fn, right above the keyboard picture (volume, media, brightness, zoom, scrolling, tabs, undo/redo, or
+  anything else from the list).
   - **macros**, run N times, while held, or until pressed again
 - **Macros**: record what you type (with the pauses), or build them step by step (key press/release/tap, waits,
   mouse clicks); a compact text form (`+ctrl c -ctrl 100ms enter`) for quick edits.
@@ -30,8 +33,8 @@ Bluetooth.
   or its whole data folder; plus one-file OpenGK6X backups.
 - A command line (`opengk6x`) for all of it.
 
-Better than the original: the keyboard picture is your keyboard (the GK104 Pro's **knob** — turn left, press, turn
-right — is remappable like any key), every profile starts from the layout printed on the keys (the official app's
+Better than the original: the keyboard picture is your keyboard (the GK104 Pro's **knob** and its screen are drawn
+where they are), every profile starts from the layout printed on the keys (the official app's
 defaults for profiles 2 and 3 are a Mac layout and "Backspace = Delete"; the Mac layout is offered as a starting
 point instead), **macros work on the Fn layer** (in the official app they only run if also on a normal key, and then
 always the first macro), and writing a profile **keeps the lighting effect you picked** (the official app resets it).
@@ -118,7 +121,7 @@ sudo rm /etc/udev/rules.d/70-opengk6x.rules      # if you added the device acces
 
 **Your settings stay** so a reinstall picks them up. To remove them too (this deletes your profiles, macros and
 effects): `~/.config/opengk6x/`, `~/.local/state/opengk6x/` and the keyboard data `~/.local/share/opengk6x/`. To
-clear the keyboard itself, hold **Fn + Esc** (factory reset).
+clear the keyboard itself, hold **Fn + Esc + Q** (factory reset).
 
 ## Using it
 
@@ -153,6 +156,7 @@ opengk6x info                                   # model and firmware
 opengk6x keys | actions [search]                # key names | what keys can do
 opengk6x bind 2 "Caps Lock" esc                 # change a key (saved, then written); --fn for the Fn layer
 opengk6x bind 2 F5 macro:greet --repeat while_held
+opengk6x bind standard knob-left previous_track # the knob: knob-left, knob-right, knob-press
 opengk6x unbind 2 "Caps Lock" | profile list | profile show 2 | profile apply 2 | profile reset 2
 opengk6x macro set greet "+shift h -shift i 50ms enter" | macro list | macro delete greet
 opengk6x effects [search] | lighting show | lighting set "Rainbow Waves" Flame | lighting apply
