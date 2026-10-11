@@ -38,6 +38,7 @@ class KeyboardView(QWidget):
     # data
     def set_keys(self, keymap: list[dict], show_variants: bool = False):
         self._keys = [k for k in keymap if show_variants or not is_variant(k)]
+        self._fit_height()
         self._layout()
         self.update()
 
@@ -87,10 +88,15 @@ class KeyboardView(QWidget):
             self._rects[k["KeyName"]] = QRectF(ox + p["Left"] * s, oy + p["Top"] * s, p["Width"] * s,
                                                p["Height"] * s).adjusted(1.5 * s, 1.5 * s, -1.5 * s, -1.5 * s)
 
+    def _fit_height(self):
+        """Keep the keyboard's shape: as tall as the width needs (the page gives the rest to other widgets)."""
+        if self._keys and self.width() > 0:
+            want = self.heightForWidth(self.width())
+            if want != self.minimumHeight() or want != self.maximumHeight():
+                self.setFixedHeight(want)
+
     def resizeEvent(self, e):
-        want = self.heightForWidth(self.width())
-        if want != self.height() and self._keys:
-            self.setFixedHeight(want)            # keep the keyboard's shape; the page gives the rest to the editor
+        self._fit_height()
         self._layout()
         super().resizeEvent(e)
 
