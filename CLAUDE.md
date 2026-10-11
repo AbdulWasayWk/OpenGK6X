@@ -104,6 +104,7 @@ docs/PROTOCOL.md
 ## Definition of done
 
 The app is **done** when every item below is checked. Keep this list current.
+**Status 2026-10-11: every item is checked; the user declared the app done.** New work goes in as new items.
 
 - [x] Every official feature that works on the GK104 Pro: offline profiles 1–3 (keys, Fn layer, macros), profile
       switching, custom effects list (Fn+−) + effect library + editor, online/live mode (lighting, key actions,
@@ -119,6 +120,14 @@ The app is **done** when every item below is checked. Keep this list current.
       udev rule installed; GitHub: github.com/AbdulWasayWk/OpenGK6X (pushed)
 - [x] Wireless: profiles 1–3 aren't used over 2.4 GHz; **the Standard profile is** and its keys are now editable
       (keys only: macros/Fn layer refused). Custom effects carry over. Configuration needs the cable.
+
+## Later (not part of done)
+- [ ] Knob **press** on the Standard profile: our full standard write set it to the official default (lighting
+      on/off); the user didn't say yet what it did before (turns were restored to volume, 2026-10-11).
+- [ ] Ubuntu/Debian and Fedora packaging (as in OpenNollie's notes: python3-hid / python3-hidapi, PySide6, 7zip).
+- [ ] Ideas the official app lists but never implemented: music-reactive lighting (live mode, PipeWire monitor),
+      per-application profile switching (needs active-window info; KWin script on Wayland).
+- [ ] Other GK6X models: only tested on the GK104 Pro; physical layouts / firmware quirks for others need owners.
 
 ## Roadmap & status
 
