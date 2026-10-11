@@ -1,5 +1,6 @@
 """OpenGK6X main window."""
 import sys
+from pathlib import Path
 
 from PySide6.QtCore import QSize
 from PySide6.QtGui import QIcon
@@ -76,6 +77,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName("OpenGK6X")
     app.setDesktopFileName("opengk6x")
+    app.setWindowIcon(QIcon.fromTheme("opengk6x", QIcon(str(Path(__file__).with_name("opengk6x.svg")))))
     w = MainWindow()
     w.show()
     sys.exit(app.exec())

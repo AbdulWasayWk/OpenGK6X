@@ -22,3 +22,6 @@ opengk6x-gui = "opengk6x.gui.app:main"
 
 [tool.setuptools.packages.find]
 include = ["opengk6x*"]
+
+[tool.setuptools.package-data]
+"opengk6x.gui" = ["*.svg"]

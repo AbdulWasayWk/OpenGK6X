@@ -1,0 +1,41 @@
+# Maintainer: AbdulWasayWk <https://github.com/AbdulWasayWk>
+pkgname=opengk6x-git
+_repo=OpenGK6X
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Linux app for GK6X keyboards (Skyloong GK104 Pro): key remapping, Fn layers, macros, lighting effects"
+arch=(any)
+url="https://github.com/AbdulWasayWk/OpenGK6X"
+license=(GPL-3.0-or-later)
+depends=(python python-hidapi pyside6)
+optdepends=('7zip: opengk6x setup-data (copies the keyboard data out of the official installer)')
+makedepends=(git python-build python-installer python-setuptools python-wheel)
+provides=(opengk6x)
+conflicts=(opengk6x)
+install=opengk6x.install
+source=("git+$url.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$_repo"
+  printf "0.1.0.r%s.g%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+  cd "$_repo"
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  cd "$_repo"
+  python -m unittest discover -s tests -t .
+}
+
+package() {
+  cd "$_repo"
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 packaging/70-opengk6x.rules "$pkgdir/usr/lib/udev/rules.d/70-opengk6x.rules"
+  install -Dm644 packaging/opengk6x.desktop "$pkgdir/usr/share/applications/opengk6x.desktop"
+  install -Dm644 opengk6x/gui/opengk6x.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/opengk6x.svg"
+  install -Dm644 README.md docs/PROTOCOL.md -t "$pkgdir/usr/share/doc/$pkgname/"
+}

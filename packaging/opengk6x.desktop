@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=OpenGK6X
+GenericName=Keyboard settings
+Comment=Remap keys, macros and lighting for GK6X keyboards (Skyloong GK104 Pro)
+Exec=opengk6x-gui
+Icon=opengk6x
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=keyboard;keymap;remap;macro;RGB;lighting;Skyloong;GK104;GK6X;
+StartupWMClass=opengk6x
