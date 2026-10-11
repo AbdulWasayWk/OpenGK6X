@@ -61,11 +61,21 @@ class Online:
         self.kb.poll()
 
     def stop(self, mode: int = p.MODE_STANDARD):
+        """Leave online mode. Ctrl+C can't interrupt this (a half-done exit leaves the keyboard in online mode)."""
         if not self.active:
             return
+        import signal
+        import threading
+        main = threading.current_thread() is threading.main_thread()
+        old = signal.signal(signal.SIGINT, signal.SIG_IGN) if main else None
         try:
-            self.kb.request(p.key_reports(False), match_sub=False, check_crc=False)
+            try:
+                self.kb.request(p.key_reports(False), match_sub=False, check_crc=False)
+            except (OSError, device.DeviceError):
+                pass
             time.sleep(0.2)
-        finally:
             self.kb.set_mode(mode)
             self.active = False
+        finally:
+            if main:
+                signal.signal(signal.SIGINT, old)

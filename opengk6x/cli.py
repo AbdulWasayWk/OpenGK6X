@@ -347,7 +347,7 @@ def cmd_live_test(args):
                 t = time.monotonic()
                 live.show({led: (0, 60, 255) for led in leds} if t < blue_until else player.step())
                 time.sleep(max(0.0, 0.05 - (time.monotonic() - t)))
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, OSError):      # Ctrl+C can also surface as an interrupted read (OSError)
             pass
         finally:
             live.stop()

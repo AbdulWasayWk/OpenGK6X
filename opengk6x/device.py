@@ -71,15 +71,15 @@ class Keyboard:
                 self.on_report(r)
         raise DeviceError(f"no reply to {op:02x} {sub:02x}")
 
-    def poll(self, timeout_ms: int = 0):
-        """Hand reports the keyboard sent on its own (key reports in online mode) to `on_report`."""
-        while True:
-            r = bytes(self._dev.read(p.REPORT_LEN, timeout_ms))
+    def poll(self, timeout_ms: int = 1, limit: int = 64):
+        """Hand reports the keyboard sent on its own (key reports in online mode) to `on_report`. Waits at most
+        `timeout_ms` for each (note: hidapi's read with timeout 0 blocks until something arrives)."""
+        for _ in range(limit):
+            r = bytes(self._dev.read(p.REPORT_LEN, max(1, timeout_ms)))
             if not r:
                 return
             if self.on_report:
                 self.on_report(r)
-            timeout_ms = 0
 
     def matrix(self) -> tuple[int, int]:
         return p.parse_matrix(self.request(p.info_request(p.INFO_MATRIX)))
