@@ -125,8 +125,6 @@ The app is **done** when every item below is checked. Keep this list current.
       (keys only: macros/Fn layer refused). Custom effects carry over. Configuration needs the cable.
 
 ## Later (not part of done)
-- [ ] Knob **press** on the Standard profile: our full standard write set it to the official default (lighting
-      on/off); the user didn't say yet what it did before (turns were restored to volume, 2026-10-11).
 - [ ] Ubuntu/Debian and Fedora packaging (as in OpenNollie's notes: python3-hid / python3-hidapi, PySide6, 7zip).
 - [ ] Ideas the official app lists but never implemented: music-reactive lighting (live mode, PipeWire monitor),
       per-application profile switching (needs active-window info; KWin script on Wayland).
