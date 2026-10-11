@@ -333,6 +333,12 @@ def cmd_live_test(args):
                 if 0 <= k["LocationCode"] < 132]
         player = fx.Player(fx.make("wave", {"speed": 60}, display_keys(keymap, store.layout(model)), "test"))
         print(f"Online mode for {args.seconds} s: blue first, then a rainbow wave. Type something; Ctrl+C stops.")
+        import signal
+
+        def interrupt(*_):
+            raise KeyboardInterrupt
+        for sig in (signal.SIGHUP, signal.SIGTERM):          # closing the terminal also switches back
+            signal.signal(sig, interrupt)
         try:
             live.start()
             end = time.monotonic() + args.seconds
@@ -474,7 +480,7 @@ def main(argv=None):
     live = command(sub, "live", None, "online mode: the PC drives the keyboard while it runs").add_subparsers(
         dest="action", required=True)
     c = command(live, "test", cmd_live_test, "short test: live lighting + key reports, then back to standard")
-    c.add_argument("--seconds", type=int, default=30)
+    c.add_argument("--seconds", type=int, default=20)
 
     mac = command(sub, "macro", None, "macro library").add_subparsers(dest="action", required=True)
     command(mac, "list", cmd_macro_list, "all macros")
