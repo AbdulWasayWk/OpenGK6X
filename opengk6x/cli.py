@@ -313,6 +313,41 @@ def cmd_lighting_apply(args):
     print(f"wrote {len(data['custom'])} custom effects ({r.packets} packets, {r.seconds:.1f} s); cycle with Fn + −")
 
 
+# --- online mode ------------------------------------------------------------------------------
+
+def cmd_live_test(args):
+    """A short, self-ending test of online mode: blue keys, then a PC-rendered rainbow wave; prints key presses."""
+    import time
+    from . import effects as fx
+    from .layouts import display_keys
+    from .online import Online
+    store, vendor = Store(), VendorData()
+    with wired_keyboard() as kb:
+        model = kb.model_id()
+        keymap = vendor.keymap(model)
+        names = {k["LogicCode"]: k.get("Show") or k["KeyName"]
+                 for k in display_keys(keymap, store.layout(model))}
+        live = Online(kb, vendor.base_profile(model))
+        live.on_keys = lambda down, up: [print(f"  key down: {names.get(i, f'#{i}')}") for i in sorted(down)]
+        leds = [k["LocationCode"] for k in display_keys(keymap, store.layout(model))
+                if 0 <= k["LocationCode"] < 132]
+        player = fx.Player(fx.make("wave", {"speed": 60}, display_keys(keymap, store.layout(model)), "test"))
+        print(f"Online mode for {args.seconds} s: blue first, then a rainbow wave. Type something; Ctrl+C stops.")
+        try:
+            live.start()
+            end = time.monotonic() + args.seconds
+            blue_until = time.monotonic() + 3
+            while time.monotonic() < end:
+                t = time.monotonic()
+                live.show({led: (0, 60, 255) for led in leds} if t < blue_until else player.step())
+                time.sleep(max(0.0, 0.05 - (time.monotonic() - t)))
+        except KeyboardInterrupt:
+            pass
+        finally:
+            live.stop()
+    print("Back on the standard profile.")
+
+
 # --- setup ------------------------------------------------------------------------------------
 
 def cmd_setup_data(args):
@@ -435,6 +470,11 @@ def main(argv=None):
     c.add_argument("effects", nargs="*")
     c = command(light, "apply", cmd_lighting_apply, "write the list to the keyboard (replaces what it has)")
     c.add_argument("--yes", "-y", action="store_true")
+
+    live = command(sub, "live", None, "online mode: the PC drives the keyboard while it runs").add_subparsers(
+        dest="action", required=True)
+    c = command(live, "test", cmd_live_test, "short test: live lighting + key reports, then back to standard")
+    c.add_argument("--seconds", type=int, default=30)
 
     mac = command(sub, "macro", None, "macro library").add_subparsers(dest="action", required=True)
     command(mac, "list", cmd_macro_list, "all macros")

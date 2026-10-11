@@ -110,9 +110,10 @@ def _hex32(value) -> int:
 
 # --- Blocks ------------------------------------------------------------------------------------
 
-def key_table(keyset: list, size: int, macro_slot: Callable[[int, dict], int]) -> bytes:
-    """Driver value per matrix index (u32 LE), unset = FF FF FF FF. Macro keys get macro_slot(index, entry)."""
-    table = bytearray(b"\xff" * size)
+def key_table(keyset: list, size: int, macro_slot: Callable[[int, dict], int], fill: int = 0xFF) -> bytes:
+    """Driver value per matrix index (u32 LE), unset = `fill` bytes (FF; the online table uses 00). Macro keys get
+    macro_slot(index, entry)."""
+    table = bytearray(bytes([fill]) * size)
     for key in keyset[:128]:
         idx = _index(key.get("Index"), size // 4)
         if idx is None:

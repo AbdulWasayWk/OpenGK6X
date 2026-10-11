@@ -35,6 +35,7 @@ class DeviceError(Exception):
 class Keyboard:
     def __init__(self, found: Found):
         self.found = found
+        self.on_report = None          # called with reports nobody asked for (key reports, mode changes)
         self._dev = hid.device()
         try:
             self._dev.open_path(found.path)
@@ -66,7 +67,19 @@ class Keyboard:
                 if check_crc and not p.crc_ok(r):
                     raise DeviceError(f"bad CRC in reply to {op:02x} {sub:02x}")
                 return r
+            if r and self.on_report:
+                self.on_report(r)
         raise DeviceError(f"no reply to {op:02x} {sub:02x}")
+
+    def poll(self, timeout_ms: int = 0):
+        """Hand reports the keyboard sent on its own (key reports in online mode) to `on_report`."""
+        while True:
+            r = bytes(self._dev.read(p.REPORT_LEN, timeout_ms))
+            if not r:
+                return
+            if self.on_report:
+                self.on_report(r)
+            timeout_ms = 0
 
     def matrix(self) -> tuple[int, int]:
         return p.parse_matrix(self.request(p.info_request(p.INFO_MATRIX)))

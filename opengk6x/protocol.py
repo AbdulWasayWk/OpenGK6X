@@ -51,6 +51,13 @@ DATA_LIGHT_KEYS = 5
 DATA_LIGHT_DATA = 6
 DATA_FN_KEYS = 7
 
+# Online ("driver") mode
+OP_DRIVER_INPUT = 0x15          # 01 mouse buttons, 02 key state, 03 key reports on/off; 04 = key report (keyboard → PC)
+OP_DRIVER_KEYS = 0x16           # online key table: type 1 keys, 3 key-press lighting index
+OP_DRIVER_LE = 0x17             # 01 = lighting config
+OP_LIVE_LIGHT = 0x1A            # 01 = frame data, 02 = show
+LIVE_LEDS = 132                 # LEDs in a live frame (22 × 6 grid)
+
 # Writes whose header is (len << 24) + 24-bit address; the others use (len << 16) + 16-bit address
 LONG_ADDRESS_OPS = {0x16, 0x1A, OP_LIGHT_DATA}
 
@@ -104,6 +111,36 @@ def set_mode(mode: int) -> bytes:
 
 def clear(mode: int, data_type: int) -> bytes:
     return packet(OP_CLEAR, mode, struct.pack("<I", data_type))
+
+
+def ping() -> bytes:
+    return packet(OP_PING, 0)
+
+
+def key_reports(on: bool) -> bytes:
+    return packet(OP_DRIVER_INPUT, 0x03, payload=bytes([1 if on else 0]))
+
+
+def driver_le_config(model=240, sub=1, brightness=18, speed=3, direction=0, rgb=(0, 0, 0), enable=15) -> bytes:
+    """`17 01`: the lighting config the app sends when entering online mode (fixed values in the app)."""
+    return packet(OP_DRIVER_LE, 0x01, payload=bytes([model, sub, brightness, speed, direction,
+                                                     *(-(-c // 2) for c in rgb), enable]))
+
+
+def live_frame(colors: dict[int, tuple[int, int, int]]) -> list[bytes]:
+    """`1A 01` chunks for one frame (LED index → RGB; others dark), then `1A 02` to show it."""
+    data = bytearray(LIVE_LEDS * 4)
+    for led, (r, g, b) in colors.items():
+        if 0 <= led < LIVE_LEDS:
+            data[led * 4:led * 4 + 4] = bytes([r, g, b, 100])
+    return chunks(OP_LIVE_LIGHT, 0x01, bytes(data)) + [packet(OP_LIVE_LIGHT, 0x02)]
+
+
+def parse_key_report(report: bytes) -> set[int] | None:
+    """`15 04` from the keyboard: the matrix indexes of the keys held down now."""
+    if len(report) < 24 or report[0] != OP_DRIVER_INPUT or report[1] != 0x04:
+        return None
+    return {(i - 8) * 8 + j for i in range(8, 24) for j in range(8) if report[i] >> j & 1}
 
 
 def chunks(op: int, mode: int, data: bytes) -> list[bytes]:
