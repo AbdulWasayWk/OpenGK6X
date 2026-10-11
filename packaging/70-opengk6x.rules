@@ -1,0 +1,8 @@
+# OpenGK6X: give the logged-in user access to the GK6X configuration interface (Skyloong GK104 Pro).
+# Only the vendor interface is granted, not the ones that carry keystrokes.
+# ID_USB_* come from 60-persistent-hidraw.rules; numbered below 73 so systemd's 73-seat-late.rules applies uaccess.
+
+# Keyboard on the cable: interface 1
+SUBSYSTEM=="hidraw", ENV{ID_USB_VENDOR_ID}=="1ea7", ENV{ID_USB_MODEL_ID}=="0907", ENV{ID_USB_INTERFACE_NUM}=="01", TAG+="uaccess"
+# 2.4 GHz receiver (nRF52): interface 3
+SUBSYSTEM=="hidraw", ENV{ID_USB_VENDOR_ID}=="1ea7", ENV{ID_USB_MODEL_ID}=="0067", ENV{ID_USB_INTERFACE_NUM}=="03", TAG+="uaccess"

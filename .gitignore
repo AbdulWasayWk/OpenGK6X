@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+.venv/
+# Raw USB captures can be large; keep them local unless explicitly added.
+captures/*.pcap*
+
+# Official vendor app (proprietary): local analysis only, never commit.
+vendor-app/
+
+# Third-party projects cloned for reference (pixeltris/GK6X ships proprietary vendor data files).
+reference/
+
+# Python build output
+build/
+dist/
+*.egg-info/

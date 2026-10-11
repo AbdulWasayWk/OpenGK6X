@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opengk6x"
+version = "0.1.0"
+description = "Linux app for GK6X keyboards (Skyloong GK104 Pro): keymaps, Fn layers, macros, lighting"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = ["hidapi", "PySide6"]
+keywords = ["keyboard", "gk6x", "skyloong", "keymap", "macro", "rgb"]
+classifiers = ["Operating System :: POSIX :: Linux", "Topic :: System :: Hardware"]
+
+[project.scripts]
+opengk6x = "opengk6x.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["opengk6x*"]
