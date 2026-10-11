@@ -150,6 +150,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## Findings log
 <!-- Newest first. Format: YYYY-MM-DD: finding (source: capture/file/test) -->
+- 2026-10-11: **Online mode works**: entering as the app does (ping, `0B 05`, ping, `15 03 01`, `16 01` key table
+  with 0-fill, `16 03` all FF, `17 01`) keeps typing normal and sends `15 04` key reports (only on changes; nothing
+  while idle). A `1A` frame (10 chunks + `1A 02`) takes ~17 ms (≈59 fps possible). The keyboard does **not** leave
+  online mode by itself when pings stop (it stayed blue for minutes). Bug found: hidapi `read(n, 0)` *blocks*, which
+  froze the first live test on frame 1; Ctrl+C mid-read then skipped the exit. (source: hardware + user)
 - 2026-10-11: **Hardware checklist (profile 1, user):** macros on normal keys ✓ (slots 0 and 1); `profile_standard`
   on Fn+1 ✓; Menu→q ✓. **Fn-layer macros run only if their slot is also on a normal-layer key**: Fn-only slot 1
   typed nothing; slot also on F7 ✓; Fn-only slot 1 *registered at the unused matrix position 9* ✓ (our fix,
