@@ -85,6 +85,8 @@ class LightingPage(QWidget):
         rl.addLayout(prow)
         self.preview = EffectPreview()
         rl.addWidget(self.preview)
+        rl.addWidget(hint("The keyboard plays effects more slowly than this preview; Fn + ← / → on the keyboard "
+                          "changes its speed."))
 
         box = QGroupBox("Custom effects in the keyboard (cycle with Fn + −)")
         bl = QVBoxLayout(box)

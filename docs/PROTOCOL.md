@@ -89,18 +89,21 @@ Chunks are ≤ 56 bytes; each one is acknowledged (reply byte 1 is read as the a
 
 ## Profiles ("modes") ✔
 
-**Write replies ✔** (profile 1 write, 2026-10-11): every packet gets `[op, status, 0 0 0 0, CRC, 0…]` with a valid
-CRC. Status `00` for `21`, `22`, `31` (accepted: the key change took effect); **`01` for `26`, `27`** (lighting data:
-evidently rejected on this model, see *Lighting on this keyboard*); `0B` echoes the mode.
+**Write replies ✔**: every packet gets `[op, status, 0 0 0 0, CRC, 0…]` with a valid CRC. Normal status: `00` for
+`21`, `22`, `31`; **`01` for `26`, `27`** (lighting writes; the custom effects list written this way works);
+`0B` echoes the mode. (The app's online-mode code also treats `01` as success for `16`, `17`, `1A`.)
 
 ### Lighting on this keyboard ✔ (model config `hasModeLe: false`)
-- Offline profiles 1–3 have **no lighting of their own**: the firmware answers `26`/`27` with `01` and shows nothing
-  from it. The official UI greys out the effect picker for modes 2–4 when `hasModeLe` is false (it still sends the
+- Offline profiles 1–3 have **no lighting of their own**: the firmware accepts `26`/`27` for them (`01`) but
+  doesn't show that data. The official UI greys out the effect picker for modes 2–4 when `hasModeLe` is false (it still sends the
   data, since `profile.js` doesn't check).
 - The lighting is chosen on the keyboard in every profile: **Fn+=** cycles the firmware's built-in effects,
   **Fn+−** cycles the **custom effects stored as the standard profile's effect list** (`DriverLE`, written to mode 1
   with `21 01 06` + `27 01 …`). Brightness Fn+↑/↓, speed Fn+←/→ (firmware; the Up key flashes as an indicator).
-- After our profile 1 write the profile came up dark until the user picked an effect with Fn+=/Fn+−.
+- After our profile 1 write the profile came up dark until the user picked an effect with Fn+=/Fn+−; writing the
+  profile without `21 m 05/06` + `26`/`27` keeps the effect the user picked. ✔
+- Custom effects list written ✔ (2026-10-11: 3 library effects, 40 packets): Fn+− cycles them. The keyboard plays
+  them much more slowly than the app's 50 ms-per-tick preview.
 - ⚠ The keyboard can't be read back, so writing mode 1's lighting replaces the user's custom effects for good.
 
 

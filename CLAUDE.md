@@ -128,7 +128,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Bindings catalog, profile store (changes from the standard layout), macros, import/export (official + backup)
 - [ ] Verify on hardware: Fn-layer key, macro playback (incl. Fn-layer macro slots), Space dual-role, profile_N keys
 - [x] Lighting: custom effects list (standard profile `DriverLE`, mode 1, no `0B`), effect player/preview, editor
-- [ ] Verify the custom list on hardware (user's OK first); online direct mode (`1A`)
+- [x] Custom list written on hardware by the user from the GUI (3 library effects): works, Fn+− cycles them;
+      effects run much slower on the keyboard than the 50 ms-tick preview (accepted by the user)
+- [ ] Online mode (`0B 05`, ping, `1A` live lighting, `15 04` key reports)
 
 ### Phase 3: App
 - [x] CLI (`info keys actions mode bind unbind profile macro export import setup-data`)
@@ -146,6 +148,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## Findings log
 <!-- Newest first. Format: YYYY-MM-DD: finding (source: capture/file/test) -->
+- 2026-10-11: **Custom effects list works** (written from the GUI by the user, 3 library effects, 40 packets): Fn+−
+  cycles them; they run much slower than the preview. **Reply status `01` is the normal OK for lighting writes
+  (`26`/`27`)**, `00` for `21`/`22`/`31`; so in profiles 1–3 the lighting data was accepted, just not used on this
+  model. (Corrects the earlier "rejected" reading.) (source: hardware + user)
 - 2026-10-11: **Effect playback** (app `cmleplayer.js`, 50 ms per tick): frames expanded by Count; a lit LED takes
   the color of the first LEConfig listing it; type 1 turns the hue 360/Count° per tick, type 2 fades in over Count
   ticks, holds StayCount, fades out, holds dark. The keyboard's frame data is only a bitmap of lit LEDs, so colors
@@ -157,8 +163,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
   official app's way) the profile came up dark. (source: hardware + user)
 - 2026-10-11: **First write works.** `opengk6x profile write 1 --set App=q` (40 packets, 0.2 s): Menu typed q in
   profile 1. Replies: `00` for `21`/`22`/`31`, **`01` for `26`/`27`**, `0B` echoes the mode; all CRCs valid.
-  **Lighting on this model** (`hasModeLe: false`): profiles 1–3 don't take lighting data (the `01` = rejected; the
-  official UI greys the picker out for them), so profile 1 came up dark until the user pressed **Fn+=** (built-in
+  **Lighting on this model** (`hasModeLe: false`): profiles 1–3 don't use lighting data (the official UI greys
+  the picker out for them; `01` turned out to be the normal lighting ack), so profile 1 came up dark until the user pressed **Fn+=** (built-in
   effects) / **Fn+−** (the user's **custom effects**, stored as the standard profile's `DriverLE` list). Fn+↑/↓ is
   brightness (firmware), not profile 1's Fn+F1/F2 entries. The user has custom effects in the keyboard that can't be
   read back. (source: hardware + user)
@@ -195,7 +201,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
   all its features"). Order: bindings/profiles/macros (CLI) → import/export (official files + our backup) → GUI →
   custom effects (Fn+−) → online mode, packaging, wireless check.
 - 2026-10-11: **Profiles are written without lighting data on models with `hasModeLe` false** (`build(lighting=
-  False)`); the firmware rejects it and the clears reset the user's effect choice. Fn-layer macros get their own
+  False)`); the firmware doesn't use it, and the clears reset the user's effect choice. Fn-layer macros get their own
   slot (the app's bug gives them slot 0); `app_compatible=True` keeps the app's exact output for golden tests.
 - 2026-10-11: Our data = profiles as *changes from the model's defaults* (key names → binding text) + a macro
   library, in `~/.config/opengk6x`; compiled to the official JSON, then by `profile.py`. A fingerprint of the
