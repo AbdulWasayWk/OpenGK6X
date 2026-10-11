@@ -18,6 +18,17 @@ class TestRenderer(unittest.TestCase):
         self.assertEqual(r.frame(now=1.2)[3], (0, 0, 0))
         self.assertEqual(r.frame(now=0.0)[4], (0, 0, 0))
 
+    def test_glow_color_over_an_effect(self):
+        """A pressed key shows the chosen color, not a mix with the effect under it."""
+        effect = {"Frames": [{"Data": {str(i): "0xffffff" for i in range(10)}}],
+                  "LEConfigs": [{"Type": 0, "Color": "0x00ff00", "Keys": list(range(10))}]}
+        cfg = live.LiveConfig(typing={"kind": "glow", "color": "0xff0000", "duration": 1000})
+        r = live.Renderer(KEYS, effect, cfg)
+        r.press(13, now=0.0)
+        self.assertEqual(r.frame(now=0.0)[3], (255, 0, 0))
+        self.assertEqual(r.frame(now=0.5)[3], (128, 128, 0))
+        self.assertEqual(r.frame(now=0.5)[4], (0, 255, 0))
+
     def test_ripple_spreads(self):
         cfg = live.LiveConfig(typing={"kind": "ripple", "color": "0xff0000", "duration": 300})
         r = live.Renderer(KEYS, None, cfg)

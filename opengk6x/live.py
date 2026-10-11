@@ -118,10 +118,11 @@ class Renderer:
 
 
 def _blend(out: dict, led: int, color, a: float):
+    """Fade the LED from what's under it towards `color` (a = 0..1)."""
     a = max(0.0, min(1.0, a))
     r, g, b = out.get(led, (0, 0, 0))
-    out[led] = (max(r, round(r * (1 - a) + color[0] * a)), max(g, round(g * (1 - a) + color[1] * a)),
-                max(b, round(b * (1 - a) + color[2] * a)))
+    out[led] = (round(r * (1 - a) + color[0] * a), round(g * (1 - a) + color[1] * a),
+                round(b * (1 - a) + color[2] * a))
 
 
 # --- Typing text and playing macros through the keyboard (15 02 key states) ---------------------
