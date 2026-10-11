@@ -1,6 +1,11 @@
 post_install() {
-  echo ">>> OpenGK6X: copy the keyboard model data out of the official GK6X installer once (as your user):"
-  echo ">>>     opengk6x setup-data GK6X_Setup_8.0.7.zip"
+  echo ">>> OpenGK6X: copy the keyboard data out of the official GK6X installer once (as your user; download"
+  echo ">>> GK6X_Setup_8.0.7.zip from Epomaker's Skyloong driver page):"
+  echo ">>>     opengk6x setup-data ~/Downloads/GK6X_Setup_8.0.7.zip"
   echo ">>> Plug the keyboard in with its USB cable (or re-plug it) so the new udev rule applies."
   echo ">>> If you used tools/install-user.sh before, run 'tools/install-user.sh --remove' first."
+}
+
+post_upgrade() {
+  echo ">>> OpenGK6X: restart the app to use the new version (quit it from the tray icon if live mode is on)."
 }

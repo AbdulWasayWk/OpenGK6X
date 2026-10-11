@@ -50,23 +50,75 @@ It's been tested on the **GK104 Pro**. On other models the basics come from the 
 but hardware variants (knobs, screens, split spacebars: Keyboard page → *Physical layout*) and firmware quirks may
 differ. Reports and fixes are welcome.
 
-## Install (Arch Linux)
+## Install
 
-1. **Dependencies:** `sudo pacman -S python-hidapi pyside6 7zip`
-2. **OpenGK6X itself**, either:
-   - as a package: `cd packaging && makepkg -si` (builds from the GitHub repo), or
-   - for your user from this folder (no root): `tools/install-user.sh` — adds `opengk6x`, `opengk6x-gui` to
-     `~/.local/bin` and "OpenGK6X" to the app menu. `tools/install-user.sh --remove` undoes it.
-3. **Keyboard access** (once): `tools/setup-dev.sh udev` installs `packaging/70-opengk6x.rules` (the package does
-   this for you). It grants your user the keyboard's configuration interface only, not the keys you type. Then
-   unplug and replug the keyboard.
-4. **Keyboard data** (once): the layout and defaults of each keyboard model, and the effect library, come from the
-   official app (they belong to its maker, so they aren't included). Download *GK6X Setup 8.0.7* from Epomaker's
-   [Skyloong driver page](https://epomaker.com/blogs/software/skyloong-driver), then:
-   ```
-   opengk6x setup-data GK6X_Setup_8.0.7.zip
-   ```
-   It copies only that data into `~/.local/share/opengk6x/vendor`; nothing from the official app runs.
+**Arch / CachyOS, system-wide** (recommended; `makepkg -si` installs the dependencies, builds the latest version
+from GitHub and installs the app, the command, the device access rule and the app-menu entry):
+
+```bash
+sudo pacman -S --needed git base-devel
+git clone https://github.com/AbdulWasayWk/OpenGK6X.git
+cd OpenGK6X/packaging && makepkg -si
+```
+
+**For your user only, from a checkout** (no package; puts `opengk6x` and `opengk6x-gui` in `~/.local/bin` and
+adds the app-menu entry, all running the code in the checkout):
+
+```bash
+sudo pacman -S --needed git python-hidapi pyside6 7zip
+git clone https://github.com/AbdulWasayWk/OpenGK6X.git
+cd OpenGK6X && tools/install-user.sh
+```
+
+The user install doesn't add the device access rule (that needs root). Add it once (it grants your user the
+keyboard's configuration interface only, not the keys you type; OpenRGB's rules also cover the wired keyboard):
+
+```bash
+tools/setup-dev.sh udev
+```
+
+Use one of the two, not both (to switch from the user install to the package, run `tools/install-user.sh --remove`
+first).
+
+**Then, once: the keyboard data.** The layout and defaults of each keyboard model, and the lighting effect
+library, come from the official app (they belong to its maker, so they aren't included). Download
+*GK6X_Setup_8.0.7.zip* from Epomaker's [Skyloong driver page](https://epomaker.com/blogs/software/skyloong-driver)
+(Windows software), then:
+
+```bash
+opengk6x setup-data ~/Downloads/GK6X_Setup_8.0.7.zip
+```
+
+It copies only that data into `~/.local/share/opengk6x/vendor`; nothing from the official app runs. (With the user
+install you can also pass the zip to the installer: `tools/install-user.sh ~/Downloads/GK6X_Setup_8.0.7.zip`.)
+Then plug the keyboard in with its USB cable (replug it if it was connected) and open **OpenGK6X** from the app menu.
+
+**Updating:** package: run `makepkg -si` again in `OpenGK6X/packaging`. User install: `git pull` in the checkout.
+Then restart OpenGK6X (if live mode keeps it in the tray, quit it from the tray icon first).
+
+## Uninstall
+
+The keyboard keeps what's written to it either way, and works without the app.
+
+**Package:**
+
+```bash
+sudo pacman -Rns opengk6x-git
+```
+
+If you turned on *Start OpenGK6X in the tray when I log in* (Live mode page), also delete
+`~/.config/autostart/opengk6x-live.desktop`.
+
+**User install** (from the checkout; then you can delete the `OpenGK6X` folder):
+
+```bash
+tools/install-user.sh --remove
+sudo rm /etc/udev/rules.d/70-opengk6x.rules      # if you added the device access rule
+```
+
+**Your settings stay** so a reinstall picks them up. To remove them too (this deletes your profiles, macros and
+effects): `~/.config/opengk6x/`, `~/.local/state/opengk6x/` and the keyboard data `~/.local/share/opengk6x/`. To
+clear the keyboard itself, hold **Fn + Esc** (factory reset).
 
 ## Using it
 
