@@ -101,6 +101,23 @@ reference/       # pixeltris/GK6X + OpenRGB driver (gitignored)
 docs/PROTOCOL.md
 ```
 
+## Definition of done
+
+The app is **done** when every item below is checked. Keep this list current.
+
+- [x] Every official feature that works on the GK104 Pro: offline profiles 1–3 (keys, Fn layer, macros), profile
+      switching, custom effects list (Fn+−) + effect library + editor, online/live mode (lighting, key actions,
+      PC macros), import/export of the official files (verified on hardware by the user, 2026-10-11)
+- [x] Improvements: GK104 Pro picture with the knob (remappable) and screen; Fn-layer macros that work; lighting
+      kept on profile writes; standard layout as every profile's base (Mac layout as a preset); typing effects;
+      backups; CLI for everything
+- [x] Safety: standard keys never written; confirmation before replacing unknown keyboard data (profiles,
+      custom effects); live mode always switches back (Ctrl+C / terminal close / quit / disconnect)
+- [x] Packaging: install-user.sh (installed), PKGBUILD (makepkg builds + tests), desktop entry, icon, udev rule
+      (installed), README with screenshots
+- [ ] Wireless: does an offline profile keep working after switching to 2.4 GHz / Bluetooth? (user test pending;
+      configuration over the receiver is impossible, custom effects do carry over)
+
 ## Roadmap & status
 
 Legend: `[ ]` todo · `[~]` in progress · `[x]` done
@@ -155,6 +172,13 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## Findings log
 <!-- Newest first. Format: YYYY-MM-DD: finding (source: capture/file/test) -->
+- 2026-10-11: Live mode verified by the user: effect speed/brightness, typing effect colors (after fixing a max()
+  blend that hid every color but white), key actions (command/URL/text/macro), tray. A yellow-green "4" key after
+  switching from 2.4 GHz back to the cable was the keyboard's own status light (went away by itself).
+- 2026-10-11: **Parity check of the remaining official features**: the 4 "combination" effects (sync RGB, music
+  volume ×2, CS:GO) have no event source in 8.0.7 (no audio capture, no game-state server; only dead
+  `g_LEGameEventMap` code), and 8.0.7 has no per-application profile switching (`Application.AppPath` is only used
+  by the online "open app" task). Firmware update: `firmware.js` is empty. So nothing else to port. (source: vendor-app)
 - 2026-10-11: **No configuration over 2.4 GHz**: with the keyboard linked to the receiver, the receiver still
   doesn't answer the handshake, and `0B 02` sent through it gets no reply. Custom lighting effects carry over to
   wireless; whether offline profiles 1–3 apply over wireless is still open (the user's first test didn't switch to
