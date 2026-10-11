@@ -146,6 +146,7 @@ class AppState(QObject):
             return
         self.model = model
         self.profiles = self.store.profiles(model)
+        self._seen = self._stamp()
         self.settings.set("model", model)
         self.model_changed.emit()
         self.profiles_changed.emit()
@@ -163,12 +164,34 @@ class AppState(QObject):
         self.message.emit(f"Keyboard connected (firmware {info.firmware_version})")
 
     # data
+    def _stamp(self):
+        files = [self.store.root / "macros.json"]
+        if self.model is not None:
+            files.append(self.store.root / str(self.model) / "profiles.json")
+        return tuple(f.stat().st_mtime_ns if f.is_file() else 0 for f in files)
+
+    def reload_if_changed(self):
+        """Pick up changes made elsewhere (the CLI, another window) since we last read or wrote the files."""
+        stamp = self._stamp()
+        if stamp == getattr(self, "_seen", stamp):
+            self._seen = stamp
+            return
+        self._seen = stamp
+        if self.model is not None:
+            self.profiles = self.store.profiles(self.model)
+        self.macros = self.store.macros()
+        self.macros_changed.emit()
+        self.profiles_changed.emit()
+        self.message.emit("Reloaded changes made outside this window")
+
     def save_profiles(self):
         self.store.save_profiles(self.model, self.profiles)
+        self._seen = self._stamp()
         self.profiles_changed.emit()
 
     def save_macros(self):
         self.store.save_macros(self.macros)
+        self._seen = self._stamp()
         self.macros_changed.emit()
         self.profiles_changed.emit()          # profiles using a macro now differ from the keyboard
 

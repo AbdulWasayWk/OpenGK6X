@@ -110,6 +110,12 @@ class MainWindow(QMainWindow):
         self.raise_()
         self.activateWindow()
 
+    def changeEvent(self, e):
+        from PySide6.QtCore import QEvent
+        if e.type() == QEvent.ActivationChange and self.isActiveWindow():
+            self.state.reload_if_changed()
+        super().changeEvent(e)
+
     def _connection(self, info):
         self.conn.setText("● Keyboard connected" if info else "○ Keyboard not connected")
 

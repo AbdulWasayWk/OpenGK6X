@@ -30,6 +30,11 @@ def key_name(keymap: list[dict], text: str) -> str:
     """A key's name in the key map: by name, else by the label on the key (real keys before the knob /
     split-spacebar variants), case-insensitive; "#N" = matrix index N."""
     t = text.strip().lower()
+    from .layouts import LAYOUTS
+    for layout in LAYOUTS.values():                     # knob names as shown in the app ("Knob ⟳")
+        for name, place in layout.show.items():
+            if place.label.lower() == t and any(k["KeyName"] == name for k in keymap):
+                return name
     if t.startswith("#") and t[1:].isdigit():
         hits = [k for k in keymap if k["LogicCode"] == int(t[1:])]
     else:
@@ -161,11 +166,14 @@ def cmd_profile_show(args):
     if prof is None:
         print(f"profile {args.slot} isn't set up by OpenGK6X yet")
         return
+    from .layouts import display_keys
+    labels = {k["KeyName"]: k["Show"] for k in display_keys(VendorData().keymap(model), store.layout(model))
+              if k.get("Shape")}
     print(f"profile {args.slot}: {prof.name or '(no name)'}")
     for title, layer in (("keys", prof.keys), ("Fn layer (hold Fn)", prof.fn_keys)):
         print(f"  {title}:" + ("" if layer else " defaults"))
         for k, v in sorted(layer.items()):
-            print(f"    {k:22} → {describe(v)}")
+            print(f"    {labels.get(k, k):22} → {describe(v)}")
 
 
 def cmd_bind(args):
