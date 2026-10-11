@@ -23,7 +23,7 @@ from .store import SLOT_MODES, Profile, Store, to_official
 
 BACKUP_FORMAT = "opengk6x-backup"
 _STOP_MODES = {v: k for k, v in REPEAT_MODES.items()}
-_SLOTS = {mode: slot for slot, mode in SLOT_MODES.items()}
+_SLOTS = {mode: slot for slot, mode in SLOT_MODES.items() if slot != "standard"}   # official std has no keys
 _NAMESPACE = uuid.UUID("5d0f7e2c-9a51-4f6e-8a5e-0c6b8f3e1a77")
 
 
@@ -239,7 +239,7 @@ def write_official(store: Store, model: int, vendor, out_dir: Path) -> tuple[lis
         written.append(f)
         exported_macros.add(name)
 
-    profiles = {s: p for s, p in store.profiles(model).items() if p}
+    profiles = {s: p for s, p in store.profiles(model).items() if p and s != "standard"}   # the app can't use it
     if profiles:
         buf = io.BytesIO()
         keymap = vendor.keymap(model)

@@ -24,6 +24,7 @@ class Layout:
     show: dict[str, Place] = field(default_factory=dict)      # variant keys this keyboard has
     screen_over: tuple[str, ...] = ()                          # keys whose area is a screen instead
     unsupported: frozenset[str] = frozenset()                  # binding categories the firmware ignores
+    wireless_standard_only: bool = False                       # over 2.4 GHz / Bluetooth only the standard profile
 
 
 NAV = ("Insert", "Home", "Page Up", "Delete", "End", "Page Down")
@@ -36,7 +37,8 @@ LAYOUTS = {
               "Scroll Lock MUTE": Place("Scroll Lock", "Knob press", True),
               "Scroll Lock VOLD": Place("Pause", "Knob ⟳", True)},
         screen_over=NAV,
-        unsupported=frozenset({"Space dual-role"})),     # tested 2026-10-11: long press just repeats Space
+        unsupported=frozenset({"Space dual-role"}),      # tested 2026-10-11: long press just repeats Space
+        wireless_standard_only=True),                    # tested 2026-10-11: profile 1 remaps not used on 2.4 GHz
     "full": Layout("Full-size, 104 keys"),
     "all": Layout("Every key in the template (knob positions, split spacebar)"),
 }

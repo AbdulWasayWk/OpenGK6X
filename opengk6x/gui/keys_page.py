@@ -5,7 +5,8 @@ from PySide6.QtWidgets import (QButtonGroup, QComboBox, QFrame, QHBoxLayout, QIn
 
 from .. import bindings as b
 from .. import session
-from ..store import SLOT_MODES, Profile, presets
+from .. import layouts
+from ..store import SLOT_MODES, STANDARD, Profile, presets
 from .binding_picker import BindingPicker
 from .common import AppState, confirm, error, heading, hint
 from .keyboard_view import KeyboardView, KeyLook
@@ -29,7 +30,7 @@ class KeysPage(QWidget):
     def __init__(self, state: AppState):
         super().__init__()
         self.state = state
-        self.slot = "1"
+        self.slot = STANDARD
         self.fn = False
         self.selected: str | None = None
         self.busy = False
@@ -40,7 +41,7 @@ class KeysPage(QWidget):
         self.tabs.setExpanding(False)
         self.tabs.setDrawBase(False)
         for s in SLOT_MODES:
-            self.tabs.addTab(f"Profile {s}")
+            self.tabs.addTab(self._tab_name(s))
         self.tabs.currentChanged.connect(self._tab_changed)
         top.addWidget(self.tabs)
         top.addStretch(1)
@@ -58,7 +59,7 @@ class KeysPage(QWidget):
         menu.addAction("Reset every key to default", self._reset_all)
         self.copy_menu = menu.addMenu("Copy this profile to")
         for s in SLOT_MODES:
-            self.copy_menu.addAction(f"Profile {s}", lambda s=s: self._copy_to(s))
+            self.copy_menu.addAction(self._tab_name(s), lambda s=s: self._copy_to(s))
         more.setMenu(menu)
         top.addWidget(self.activate)
         top.addWidget(self.apply)
@@ -67,7 +68,9 @@ class KeysPage(QWidget):
 
         self.status = QLabel()
         self.status.setTextFormat(Qt.RichText)
+        self.where = hint("")
         lay.addWidget(self.status)
+        lay.addWidget(self.where)
 
         layer_row = QHBoxLayout()
         self.layer_buttons = QButtonGroup(self)
@@ -138,18 +141,31 @@ class KeysPage(QWidget):
         self._model_changed()
 
     # --- display ---------------------------------------------------------------------------------
+    @staticmethod
+    def _tab_name(slot: str) -> str:
+        return "Standard" if slot == STANDARD else f"Profile {slot}"
+
+    def _layer_rules(self):
+        """The Fn layer and macros exist in profiles 1-3 only (the keyboard refuses them in the standard one)."""
+        fn_ok = self.state.has_fn_layer and self.slot != STANDARD
+        self.layer_buttons.button(1).setVisible(fn_ok)
+        if not fn_ok and self.fn:
+            self.layer_buttons.button(0).setChecked(True)
+            self.fn = False
+        hidden = set(self.state.unsupported())
+        if self.slot == STANDARD:
+            hidden.add("Macros")
+        self.picker.set_hidden_categories(hidden)
+
     def _model_changed(self):
         self.view.set_keys(self.state.display_keys(), self.state.screen_area())
-        self.layer_buttons.button(1).setVisible(self.state.has_fn_layer)
-        if not self.state.has_fn_layer and self.fn:
-            self.layer_buttons.button(0).click()
+        self._layer_rules()
         self.press_effect.blockSignals(True)
         self.press_effect.clear()
         self.press_effect.addItem("Nothing", None)
         for guid, name in self.state.effect_names():
             self.press_effect.addItem(name, guid)
         self.press_effect.blockSignals(False)
-        self.picker.set_hidden_categories(self.state.unsupported())
         while self.preset_row.count():
             item = self.preset_row.takeAt(0)
             if item.widget():
@@ -177,8 +193,16 @@ class KeysPage(QWidget):
             return
         for i, s in enumerate(SLOT_MODES):
             prof = self.state.profiles[s]
-            name = prof.name if prof and prof.name and prof.name != f"Profile {s}" else ""
-            self.tabs.setTabText(i, f"Profile {s}" + (f" · {name}" if name else ""))
+            name = prof.name if prof and prof.name and prof.name not in (f"Profile {s}", "Standard") else ""
+            self.tabs.setTabText(i, self._tab_name(s) + (f" · {name}" if name else ""))
+        wireless = layouts.LAYOUTS.get(self.state.layout, layouts.LAYOUTS["full"]).wireless_standard_only
+        if self.slot == STANDARD:
+            self.where.setText("The keyboard's own layout" + (", used on every connection (cable, 2.4 GHz, "
+                               "Bluetooth)" if wireless else "") + ". Key changes only: the Fn layer and macros "
+                               "need profile 1–3.")
+        else:
+            self.where.setText("Works on the USB cable only: over 2.4 GHz and Bluetooth the keyboard uses the "
+                               "Standard profile. For changes everywhere, use the Standard tab." if wireless else "")
         prof = self._profile()
         st = self.state.status(self.slot)
         mark, color = STATUS_STYLE[st]
@@ -279,6 +303,7 @@ class KeysPage(QWidget):
     # --- events ----------------------------------------------------------------------------------
     def _tab_changed(self, i):
         self.slot = list(SLOT_MODES)[i]
+        self._layer_rules()
         self.refresh()
 
     def _layer_changed(self, i):
@@ -347,11 +372,20 @@ class KeysPage(QWidget):
         if prof is None or target == self.slot:
             return
         old = self.state.profiles[target]
-        if old and not confirm(self, "Copy profile", f"Replace profile {target} with a copy of profile "
-                                                     f"{self.slot}?", "Replace"):
+        keys, fn_keys = dict(prof.keys), dict(prof.fn_keys)
+        note = ""
+        if target == STANDARD:
+            dropped = len(fn_keys) + sum(isinstance(v, dict) for v in keys.values())
+            keys = {k: v for k, v in keys.items() if not isinstance(v, dict)}
+            fn_keys = {}
+            note = f"\n\n{dropped} Fn-layer and macro keys are left out: the standard profile can't hold them." \
+                if dropped else ""
+        if (old and (old.keys or old.fn_keys) or note) and not confirm(
+                self, "Copy profile", f"Replace {self._tab_name(target)} with a copy of "
+                f"{self._tab_name(self.slot)}?{note}", "Replace"):
             return
-        self.state.profiles[target] = Profile(prof.name, dict(prof.keys), dict(prof.fn_keys),
-                                              old.applied if old else None)
+        self.state.profiles[target] = Profile(prof.name if target != STANDARD else "Standard", keys, fn_keys,
+                                              old.applied if old else None, dict(prof.lighting))
         self.state.save_profiles()
         self.tabs.setCurrentIndex(list(SLOT_MODES).index(target))
 
@@ -359,10 +393,15 @@ class KeysPage(QWidget):
         prof = self._profile()
         if prof is None:
             return
-        if prof.applied is None and not confirm(
-                self, "Write profile", f"OpenGK6X hasn't written profile {self.slot} before. Writing replaces "
-                f"whatever the keyboard has in it, for example settings from the official app.", "Write"):
-            return
+        if prof.applied is None:
+            if self.slot == STANDARD:
+                text = ("This changes the keyboard's own layout (the Standard profile), which it also uses over "
+                        "2.4 GHz and Bluetooth. Holding Fn + Esc resets it to the factory layout.")
+            else:
+                text = (f"OpenGK6X hasn't written profile {self.slot} before. Writing replaces whatever the keyboard "
+                        "has in it, for example settings from the official app.")
+            if not confirm(self, "Write profile", text, "Write"):
+                return
         slot, state = self.slot, self.state
         self.busy = True
         self.refresh()

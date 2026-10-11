@@ -95,7 +95,8 @@ class TestStore(unittest.TestCase):
     def test_round_trip(self):
         with tempfile.TemporaryDirectory() as d:
             store = Store(Path(d))
-            self.assertEqual(store.profiles(1), {"1": None, "2": None, "3": None})
+            self.assertEqual(store.profiles(1), {"standard": Profile(name="Standard"), "1": None, "2": None,
+                                                 "3": None})
             profiles = store.profiles(1)
             profiles["2"] = Profile("Gaming", {"App": "q"}, {}, "abc")
             store.save_profiles(1, profiles)
@@ -117,6 +118,34 @@ class TestStore(unittest.TestCase):
         self.assertEqual(DEFAULT["KeySet"][0]["DriverValue"], "0x02006500")   # the default isn't modified
         with self.assertRaises(ValueError):
             to_official(Profile("P", {"Nope": "a"}), "1", DEFAULT, KEYMAP)
+
+
+class TestStandardProfile(unittest.TestCase):
+    class Vendor:
+        def keymap(self, model):
+            return KEYMAP
+
+        def base_profile(self, model):
+            return json.loads(json.dumps(DEFAULT))
+
+        def model_config(self, model):
+            return {}
+
+    def test_keys_only(self):
+        from opengk6x import protocol as p
+        from opengk6x.store import compile_packets
+        packets = compile_packets(Profile("S", {"App": "q"}), "standard", self.Vendor(), 1, (16, 8), {}, "full")
+        ops = [(x[0], x[1]) for x in packets]
+        self.assertEqual(ops[0], (p.OP_CLEAR, 1))
+        self.assertEqual(packets[0][2], p.DATA_KEYS)
+        self.assertEqual(ops[1:-1], [(p.OP_KEYS, 1)] * 10)
+        self.assertEqual(ops[-1], (p.OP_SET_MODE, 1))
+        self.assertEqual(packets[1][8 + 4:8 + 8], bytes([0, 0x14, 0, 2]))          # App (index 1) = q
+        with self.assertRaises(ValueError):
+            compile_packets(Profile("S", fn_keys={"App": "q"}), "standard", self.Vendor(), 1, (16, 8), {}, "full")
+        with self.assertRaises(ValueError):
+            compile_packets(Profile("S", {"App": {"macro": "m"}}), "standard", self.Vendor(), 1, (16, 8),
+                            {}, "full")
 
 
 class TestModels(unittest.TestCase):

@@ -57,6 +57,8 @@ def status(store: Store, vendor: VendorData, model: int, slot: str, prof: Profil
     if prof is None:
         return UNKNOWN
     if prof.applied is None:
+        if slot == "standard" and not prof.keys:
+            return APPLIED                       # the factory layout, which the keyboard has unless we changed it
         return NOT_WRITTEN
     current = fingerprint(compile_packets(prof, slot, vendor, model, matrix, store.macros(), store.layout(model),
                                           effect_loader(store, vendor)))

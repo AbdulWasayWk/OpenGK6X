@@ -20,10 +20,12 @@ from pathlib import Path
 
 from . import bindings as b
 from . import profile as pr
+from . import protocol as p
 from .macros import REPEAT_MODES, Macro, to_actions
 
 CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "opengk6x"
-SLOT_MODES = {"1": 2, "2": 3, "3": 4}
+SLOT_MODES = {"standard": 1, "1": 2, "2": 3, "3": 4}
+STANDARD = "standard"     # the keyboard's own layout: keys only (no Fn layer, no macros), used on every connection
 
 
 @dataclass
@@ -48,6 +50,14 @@ class Profile:
                    data.get("applied"), dict(data.get("lighting", {})))
 
 
+def check_standard(profile: Profile) -> None:
+    """The standard profile takes key changes only: the keyboard refuses its Fn layer and macros (reply F0)."""
+    if profile.fn_keys:
+        raise ValueError("the standard profile has no Fn layer you can change (use profile 1-3)")
+    if any(isinstance(v, dict) for v in profile.keys.values()):
+        raise ValueError("the keyboard doesn't store macros in the standard profile (use profile 1-3)")
+
+
 def check_binding(binding) -> None:
     """Raise ValueError if a binding (text or macro dict) isn't valid."""
     if isinstance(binding, dict):
@@ -70,10 +80,14 @@ class Store:
         return self.root / str(model) / "profiles.json"
 
     def profiles(self, model: int) -> dict[str, Profile | None]:
-        """Slot "1"-"3" → Profile, or None if OpenGK6X has never set that slot up (its content is unknown)."""
+        """Slot → Profile. Slots "1"-"3" are None if OpenGK6X has never set them up (their content is unknown);
+        the standard profile is always there (only OpenGK6X changes it; untouched = the factory layout)."""
         f = self._profiles_file(model)
         data = json.loads(f.read_text()) if f.is_file() else {}
-        return {s: Profile.from_json(data[s]) if data.get(s) else None for s in SLOT_MODES}
+        out = {s: Profile.from_json(data[s]) if data.get(s) else None for s in SLOT_MODES}
+        if out[STANDARD] is None:
+            out[STANDARD] = Profile(name="Standard")
+        return out
 
     def save_profiles(self, model: int, profiles: dict[str, Profile | None]):
         f = self._profiles_file(model)
@@ -192,6 +206,14 @@ def compile_packets(profile: Profile, slot: str, vendor, model: int, matrix: tup
     from .layouts import default_layout, spare_indexes
     keymap, base = vendor.keymap(model), vendor.base_profile(model)
     official = to_official(profile, slot, base, keymap)
+    if slot == STANDARD:
+        # keys only, clear + whole table like a profile (verified on the GK104 Pro: `22 01` accepted, and it's
+        # the layout the keyboard uses over 2.4 GHz); its lighting (the custom effects list) is left alone
+        check_standard(profile)
+        cols, rows = matrix
+        table = pr.key_table(official.get("KeySet") or [], cols * rows * 4, lambda i, k: 0xFF)
+        return [p.clear(p.MODE_STANDARD, p.DATA_KEYS)] + p.chunks(p.OP_KEYS, p.MODE_STANDARD, table) + \
+            [p.set_mode(p.MODE_STANDARD)]
     spare = spare_indexes(keymap, base, layout or default_layout(model))
     has_lighting = bool(vendor.model_config(model).get("hasModeLe"))
 

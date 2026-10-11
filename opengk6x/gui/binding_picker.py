@@ -169,7 +169,7 @@ class BindingPicker(QWidget):
         self.tree.clear()
         groups: dict[str, QTreeWidgetItem] = {}
         hidden = getattr(self, "_hidden", set())
-        for cat in [c for c in CATEGORY_ORDER if c not in hidden] + ["Macros"]:
+        for cat in [c for c in CATEGORY_ORDER + ["Macros"] if c not in hidden]:
             groups[cat] = QTreeWidgetItem(self.tree, [cat])
             groups[cat].setFlags(Qt.ItemIsEnabled)
         for a in b.catalog():
@@ -178,10 +178,10 @@ class BindingPicker(QWidget):
             item = QTreeWidgetItem(groups[a.category], [a.label])
             item.setData(0, Qt.UserRole, a.name)
             item.setToolTip(0, f"{a.label}  [{a.name}]")
-        for name in sorted(self.state.macros, key=str.lower):
+        for name in sorted(self.state.macros, key=str.lower) if "Macros" in groups else ():
             item = QTreeWidgetItem(groups["Macros"], [name])
             item.setData(0, MACRO_ROLE, name)
-        if not self.state.macros:
+        if not self.state.macros and "Macros" in groups:
             item = QTreeWidgetItem(groups["Macros"], ["(no macros yet: make one on the Macros page)"])
             item.setFlags(Qt.ItemIsEnabled)
         groups["Basic"].setExpanded(True)

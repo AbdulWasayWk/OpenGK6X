@@ -122,8 +122,12 @@ def _apply(store: Store, model: int, slot: str, profiles: dict, *, yes: bool, dr
             print(f"profile {slot}: {n} packets (dry run, nothing sent)")
             return
         if profiles[slot].applied is None:
-            confirm(f"Profile {slot} hasn't been written by OpenGK6X before. Writing replaces whatever the keyboard "
-                    f"has in it (e.g. settings from the official app). Continue?", yes)
+            if slot == "standard":
+                confirm("This changes the keyboard's own (standard) layout, which it also uses over 2.4 GHz and "
+                        "Bluetooth. Holding Fn + Esc resets it to the factory layout. Continue?", yes)
+            else:
+                confirm(f"Profile {slot} hasn't been written by OpenGK6X before. Writing replaces whatever the "
+                        f"keyboard has in it (e.g. settings from the official app). Continue?", yes)
         r = session.write_profile(kb, store, vendor, model, slot, profiles)
     print(f"wrote profile {slot} ({r.packets} packets, {r.seconds:.1f} s); the keyboard is now on it")
     if r.unexpected:
@@ -168,6 +172,9 @@ def cmd_bind(args):
     store, model = Store(), connected_model()
     keymap = VendorData().keymap(model)
     name = key_name(keymap, args.key)
+    if args.slot == "standard" and (args.fn or args.binding.lower().startswith("macro:")):
+        raise Abort("the standard profile takes key changes only; the keyboard refuses its Fn layer and macros "
+                    "(use profile 1-3, which work on the cable)")
     if args.binding.lower().startswith("macro:"):
         macro = args.binding[6:]
         if macro not in store.macros():

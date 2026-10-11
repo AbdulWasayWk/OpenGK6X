@@ -9,8 +9,10 @@ Bluetooth.
 
 ## What it can do
 
-- **Three profiles of your own** (profile 1–3) on top of the keyboard's standard layout. For each key, normal and
-  with **Fn held**, pick anything the official app offers:
+- **Your own layout everywhere**: the **Standard** profile (the keyboard's own layout) is editable too — something
+  the official app can't do — and it's the one the keyboard uses over **2.4 GHz and Bluetooth**.
+- **Three more profiles** (profile 1–3, used on the USB cable). For each key, normal and with **Fn held**, pick
+  anything the official app offers:
   - any key or **shortcut** (Ctrl+Shift+T, Super+D, …), or press the shortcut to capture it
   - media keys, browser keys, calculator, mouse buttons, sleep
   - lighting controls (brightness, effect speed, on/off)
@@ -119,6 +121,9 @@ opengk6x export --official folder/              # files the official app can imp
 ## Limits
 
 - Settings can only be written over the USB cable (the official app has the same limit).
+- Over 2.4 GHz and Bluetooth the GK104 Pro uses only the Standard profile, and the keyboard doesn't accept macros or
+  Fn-layer changes there: put key remaps in Standard to have them everywhere; macros and the Fn layer work in
+  profiles 1–3 on the cable.
 - On the GK104 Pro, profiles 1–3 don't have their own lighting; the keyboard's effect choice (Fn + = / −) is shared.
 - The official app's "Space, long press" functions do nothing on the GK104 Pro, so OpenGK6X doesn't offer them there.
 - Physical layout: Keyboard page → *Physical layout* (the GK104 Pro by default; a full-size 104-key option for other

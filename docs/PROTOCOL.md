@@ -93,6 +93,12 @@ Chunks are ≤ 56 bytes; each one is acknowledged (reply byte 1 is read as the a
 `21`, `22`, `31`; **`01` for `26`, `27`** (lighting writes; the custom effects list written this way works);
 `0B` echoes the mode. (The app's online-mode code also treats `01` as success for `16`, `17`, `1A`.)
 
+### The standard profile and wireless ✔ (GK104 Pro)
+- Over 2.4 GHz the keyboard uses **only the standard profile** (mode 1); profiles 1–3 stay selected but unused.
+- Mode 1's **key table is writable** like a profile's: `21 01 01`, `22 01` chunks → status `00` (also a lone 4-byte
+  `22 01` write). The official app never does this. **`25 01` (macros) and `31 01` (Fn layer) → status `F0`**:
+  refused. Mode 1's lighting (`21 01 05/06`, `26 01`, `27 01`) is the custom effects list.
+
 ### Lighting on this keyboard ✔ (model config `hasModeLe: false`)
 - Offline profiles 1–3 have **no lighting of their own**: the firmware accepts `26`/`27` for them (`01`) but
   doesn't show that data. The official UI greys out the effect picker for modes 2–4 when `hasModeLe` is false (it still sends the

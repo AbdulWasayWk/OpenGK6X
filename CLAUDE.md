@@ -115,8 +115,8 @@ The app is **done** when every item below is checked. Keep this list current.
       custom effects); live mode always switches back (Ctrl+C / terminal close / quit / disconnect)
 - [x] Packaging: install-user.sh (installed), PKGBUILD (makepkg builds + tests), desktop entry, icon, udev rule
       (installed), README with screenshots
-- [ ] Wireless: does an offline profile keep working after switching to 2.4 GHz / Bluetooth? (user test pending;
-      configuration over the receiver is impossible, custom effects do carry over)
+- [x] Wireless: profiles 1–3 aren't used over 2.4 GHz; **the Standard profile is** and its keys are now editable
+      (keys only: macros/Fn layer refused). Custom effects carry over. Configuration needs the cable.
 
 ## Roadmap & status
 
@@ -172,6 +172,15 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## Findings log
 <!-- Newest first. Format: YYYY-MM-DD: finding (source: capture/file/test) -->
+- 2026-10-11: **The standard profile's key table is writable and is what the keyboard uses over 2.4 GHz.**
+  Profiles 1–3 aren't used over 2.4 GHz (profile 1 stays selected: back on the cable its remaps return). The
+  official app never writes standard keys (its UI forbids it) but does write standard *lighting* (the custom
+  effects list), which is why effects carry over. Tests (user's OK, minimal first): a single 4-byte `22 01` write
+  (Menu → q) → reply `22 00`, Menu typed q on the cable **and on 2.4 GHz**; full clear + table (`21 01 01`,
+  `22 01` ×10) → `00`, everything normal. **Macros (`25 01`) and the Fn layer (`31 01`) are refused for mode 1:
+  reply status `F0`** (an F5 macro key did nothing; a single Fn entry had no effect). So: remaps everywhere via the
+  Standard profile; Fn layer and macros only in profiles 1–3, cable only. The full write puts the official profile 1
+  default values in every key; the factory values might differ (asked about the knob). (source: hardware + user)
 - 2026-10-11: Live mode verified by the user: effect speed/brightness, typing effect colors (after fixing a max()
   blend that hid every color but white), key actions (command/URL/text/macro), tray. A yellow-green "4" key after
   switching from 2.4 GHz back to the cable was the keyboard's own status light (went away by itself).
@@ -246,6 +255,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## Decision log
 <!-- Newest first. Format: YYYY-MM-DD: decision; reason -->
+- 2026-10-11: **Standard profile editable (keys only)**, first tab in the GUI, `bind standard …` in the CLI; profiles
+  1–3 say they're cable-only on the GK104 Pro (`Layout.wireless_standard_only`). Reason: the user wants remaps on
+  2.4 GHz, and the keyboard uses the standard layout there.
 - 2026-10-11: **Physical layouts** (`layouts.py`, our data): the model's key map is a multi-variant template; a
   layout picks the real keys (GK104 Pro: knob drawn as 3 round keys at PrtSc/ScrLk/Pause, screen over the nav
   block). Stored per model in `~/.config/opengk6x/<model>/keyboard.json`; default GK104 Pro for 656802056.
@@ -274,6 +286,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - **This is the user's only keyboard.** A bad keymap can leave them unable to type. Like the official app, write
   keys only to offline profiles 1–3 (modes 2–4), never the standard layer (mode 1). Switch back to standard with
   `0B 01` from the CLI (mouse-only) or the keyboard; last resort **Fn+Esc+Q** (factory reset).
+- The Standard profile's **keys** are written like a profile (clear + table + `0B 01`); never its Fn layer or
+  macros (refused anyway). Confirm before the first write (it changes the keyboard's own layout).
 - **Don't write the standard profile's lighting (mode 1, `21 01 06` / `27 01`) without the user's explicit OK**:
   it holds the user's custom effects (Fn+−), which can't be read back, so a write replaces them for good.
 - Never send firmware-update / bootloader commands, `03` restart variants that enter boot modes, or `41 01`
