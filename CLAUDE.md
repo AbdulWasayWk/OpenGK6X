@@ -118,8 +118,9 @@ The app is **done** when every item below is checked. Keep this list current.
       install-user.sh (checks deps, optional official zip → setup-data, udev hint, --remove incl. live autostart;
       installed for the user); PKGBUILD verified from a fresh GitHub clone (46 tests, package contents);
       udev rule installed; GitHub: github.com/AbdulWasayWk/OpenGK6X (pushed)
-- [x] Knob options (user request 2026-10-12, as in the official app): turn left / turn right / press as separate
-      parts of one knob in the picture + editor panel (normal and Fn layer), CLI `knob-left/-right/-press`
+- [x] Knob options (user request 2026-10-12, as in the official app): the GK104 Pro's **3 knobs**, each with its own
+      turn left / turn right / press (9 actions, normal and Fn layer): knob dials in the picture showing their 3
+      actions + a 3-part panel in the editor; CLI `knob1-left` … `knob3-press`
 - [x] Wireless: profiles 1–3 aren't used over 2.4 GHz; **the Standard profile is** and its keys are now editable
       (keys only: macros/Fn layer refused). Custom effects carry over. Configuration needs the cable.
 
@@ -215,10 +216,12 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
   typed nothing; slot also on F7 ✓; Fn-only slot 1 *registered at the unused matrix position 9* ✓ (our fix,
   `profile._register_fn_macros`; spare positions from `layouts.spare_indexes`). **Space "long-press" types
   (`0x0A0C00MM`) don't work on this firmware**: tap = space, holding just repeats (hidden for the GK104 Pro).
-  **Physical GK104 Pro:** no PrtSc/ScrLk/Pause and no Ins/Home/PgUp/Del/End/PgDn keys; a **knob** in their place
-  and a **screen** over the nav block. The knob = the template's "Scroll Lock" knob variant: turn left = matrix 125
-  ("Scroll Lock VOLU"), turn right = 126 ("VOLD"), press = 124 ("MUTE"); defaults brightness −/+ and lighting
-  on/off, Fn + turn = volume. Knob press remapped to Mute ✓. (source: hardware + user)
+  **Physical GK104 Pro:** no PrtSc/ScrLk/Pause and no Ins/Home/PgUp/Del/End/PgDn keys; **three knobs** in their
+  place (user, corrected 2026-10-12; first read as one knob) and a **screen** over the nav block. The knobs = the
+  template's Print Screen / Scroll Lock / Pause knob variants (`<key> VOLU` = turn left, `VOLD` = turn right,
+  `MUTE` = press; matrix 122/123/121, 125/126/124, 105/106/127). Official defaults: zoom Ctrl −/+ and pause
+  lighting; brightness −/+ and lighting on/off; volume −/+ and mute; Fn + any knob = volume/mute. Middle knob tested
+  (turn left = 125, press → Mute ✓). (source: hardware + user)
 - 2026-10-11: **Custom effects list works** (written from the GUI by the user, 3 library effects, 40 packets): Fn+−
   cycles them; they run much slower than the preview. **Reply status `01` is the normal OK for lighting writes
   (`26`/`27`)**, `00` for `21`/`22`/`31`; so in profiles 1–3 the lighting data was accepted, just not used on this
@@ -267,17 +270,20 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
   form the keyboard itself uses. (source: OpenRGB SkyloongGK104ProController.cpp)
 
 ## Decision log
-- 2026-10-12: **Knobs are one control** (user: the first try, a row of 3 drop-downs over the picture, was confusing).
-  `layouts.Knob` (left/right/press key-map names); `Layout.knobs`, or `template_knobs` (the "all" layout: every
-  VOLU/VOLD/MUTE variant triple, `find_knobs`). The picture draws a knob (dial = press, sides = turns, each showing
-  its action); selecting it shows a 3-part panel in the editor; the list assigns to the chosen part, knob actions
-  suggested first (`KNOB_ACTIONS`). Knob parts in `display_keys` have `Shape: "knob"` (no LED).
+- 2026-10-12: **Each knob is one control with 3 parts** (user: a row of 3 drop-downs was confusing; then: "there
+  are three knobs", 9 actions). `layouts.Knob` (left/right/press key-map names); GK104 Pro `Layout.knobs` = the
+  template's Print Screen / Scroll Lock / Pause variants (left / middle / right knob, each in its key's place);
+  `template_knobs` for the "all" layout (`find_knobs`: every VOLU/VOLD/MUTE triple). The picture draws each knob as
+  a dial listing ⟲ / press / ⟳; clicking it shows a 3-part panel in the editor (the part edited last stays picked
+  across knobs); the list assigns to that part, knob actions suggested first (`KNOB_ACTIONS`). Knob parts in
+  `display_keys` have `Shape: "knob"` (no LED), so they're never used as spare positions for Fn macros (the right
+  knob's turns, 105/106, were on that list before).
 <!-- Newest first. Format: YYYY-MM-DD: decision; reason -->
 - 2026-10-11: **Standard profile editable (keys only)**, first tab in the GUI, `bind standard …` in the CLI; profiles
   1–3 say they're cable-only on the GK104 Pro (`Layout.wireless_standard_only`). Reason: the user wants remaps on
   2.4 GHz, and the keyboard uses the standard layout there.
 - 2026-10-11: **Physical layouts** (`layouts.py`, our data): the model's key map is a multi-variant template; a
-  layout picks the real keys (GK104 Pro: knob drawn as 3 round keys at PrtSc/ScrLk/Pause, screen over the nav
+  layout picks the real keys (GK104 Pro: 3 knobs at PrtSc/ScrLk/Pause, screen over the nav
   block). Stored per model in `~/.config/opengk6x/<model>/keyboard.json`; default GK104 Pro for 656802056.
   Every profile starts from the official profile 1 default (profiles 2/3 defaults are a Mac layout / Backspace =
   Delete; the Mac layout is a preset).

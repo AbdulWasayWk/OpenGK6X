@@ -17,8 +17,9 @@ Bluetooth.
   - media keys, browser keys, calculator, mouse buttons, sleep
   - lighting controls (brightness, effect speed, on/off)
   - **switch profile** keys
-- **Knobs**: drawn as a knob showing what turn left, turn right and press do; click it to set each of the three
-  (normal and with Fn), with the usual knob actions suggested first (volume, media, brightness, zoom, tabs, …).
+- **Knobs** (the GK104 Pro has three): each knob shows what turning it left, turning it right and pressing it do;
+  click a knob to set its three actions separately (normal and with Fn), with the usual knob actions suggested
+  first (volume, media, brightness, zoom, tabs, …).
   - **macros**, run N times, while held, or until pressed again
 - **Macros**: record what you type (with the pauses), or build them step by step (key press/release/tap, waits,
   mouse clicks); a compact text form (`+ctrl c -ctrl 100ms enter`) for quick edits.
@@ -32,7 +33,7 @@ Bluetooth.
   or its whole data folder; plus one-file OpenGK6X backups.
 - A command line (`opengk6x`) for all of it.
 
-Better than the original: the keyboard picture is your keyboard (the GK104 Pro's **knob** and its screen are drawn
+Better than the original: the keyboard picture is your keyboard (the GK104 Pro's **knobs** and its screen are drawn
 where they are), every profile starts from the layout printed on the keys (the official app's
 defaults for profiles 2 and 3 are a Mac layout and "Backspace = Delete"; the Mac layout is offered as a starting
 point instead), **macros work on the Fn layer** (in the official app they only run if also on a normal key, and then
@@ -155,7 +156,7 @@ opengk6x info                                   # model and firmware
 opengk6x keys | actions [search]                # key names | what keys can do
 opengk6x bind 2 "Caps Lock" esc                 # change a key (saved, then written); --fn for the Fn layer
 opengk6x bind 2 F5 macro:greet --repeat while_held
-opengk6x bind standard knob-left previous_track # the knob: knob-left, knob-right, knob-press
+opengk6x bind standard knob2-left previous_track # knobs (left to right): knob1-left, knob1-right, knob1-press, …
 opengk6x unbind 2 "Caps Lock" | profile list | profile show 2 | profile apply 2 | profile reset 2
 opengk6x macro set greet "+shift h -shift i 50ms enter" | macro list | macro delete greet
 opengk6x effects [search] | lighting show | lighting set "Rainbow Waves" Flame | lighting apply

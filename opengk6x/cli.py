@@ -31,13 +31,14 @@ def key_name(keymap: list[dict], text: str) -> str:
     split-spacebar variants), case-insensitive; "#N" = matrix index N."""
     t = text.strip().lower()
     from .layouts import LAYOUTS
-    words = t.replace("_", " ").replace("-", " ").split()
-    role = {("knob", "left"): "left", ("knob", "turn", "left"): "left", ("knob", "right"): "right",
-            ("knob", "turn", "right"): "right", ("knob", "press"): "press"}.get(tuple(words))
-    for layout in LAYOUTS.values():                     # knob-left / knob-right / knob-press ("knob turn left")
-        for knob in layout.knobs if role else ():
-            if any(k["KeyName"] == knob.parts()[role] for k in keymap):
-                return knob.parts()[role]
+    words = " ".join(t.replace("_", " ").replace("-", " ").split())
+    roles = {"left": ("left", "turn left"), "right": ("right", "turn right"), "press": ("press",)}
+    for layout in LAYOUTS.values():          # knob parts: knob1-left, "middle knob press", "right knob turn left"
+        for i, knob in enumerate(layout.knobs, 1):
+            for role, part in knob.parts().items():
+                said = {f"{n} {r}" for n in (f"knob{i}", f"knob {i}", knob.name.lower()) for r in roles[role]}
+                if words in said and any(k["KeyName"] == part for k in keymap):
+                    return part
     if t.startswith("#") and t[1:].isdigit():
         hits = [k for k in keymap if k["LogicCode"] == int(t[1:])]
     else:
@@ -94,8 +95,15 @@ def cmd_info(args):
 
 
 def cmd_keys(args):
-    for k in sorted(VendorData().keymap(connected_model()), key=lambda k: k["LogicCode"]):
+    from .layouts import knobs
+    model = connected_model()
+    keymap = VendorData().keymap(model)
+    for k in sorted(keymap, key=lambda k: k["LogicCode"]):
         print(f"{k['LogicCode']:4}  {k['KeyName']:24} {k.get('Show', '')}")
+    for i, knob in enumerate(knobs(keymap, Store().layout(model)), 1):
+        if i == 1:
+            print("\nKnobs (left to right):")
+        print(f"  knob{i}-left / knob{i}-right / knob{i}-press   {knob.name}: turn left, turn right, press")
 
 
 def cmd_actions(args):

@@ -186,6 +186,20 @@ class TestModels(unittest.TestCase):
         self.assertNotIn("Shape", shown["F12 Mute"])
         self.assertEqual(layouts.knobs(keymap, "full"), [])
         self.assertEqual(layouts.knobs(keymap, "gk104pro"), [])        # its knob's keys aren't in this key map
+        # the GK104 Pro: three knobs in place of Print Screen / Scroll Lock / Pause, 9 separate actions
+        pos = {"Left": 0, "Top": 0, "Width": 42, "Height": 42}
+        gk, code = [], 100
+        for key in ("Print Screen", "Scroll Lock", "Pause"):
+            for name in (key, f"{key} VOLU", f"{key} VOLD", f"{key} MUTE"):
+                gk.append({"KeyName": name, "LogicCode": code, "Position": dict(pos)})
+                code += 1
+        found = layouts.knobs(gk, "gk104pro")
+        self.assertEqual([k.name for k in found], ["Left knob", "Middle knob", "Right knob"])
+        self.assertEqual(len({p for k in found for p in k.parts().values()}), 9)
+        shown = layouts.display_keys(gk, "gk104pro")
+        self.assertEqual({k["KeyName"] for k in shown}, {p for k in found for p in k.parts().values()})
+        spare = layouts.spare_indexes(gk, {}, "gk104pro")             # never a knob: Fn macros get parked there
+        self.assertEqual(set(spare) & {k["LogicCode"] for k in shown}, set())
         values = [b.parse(v) for v, _ in layouts.KNOB_ACTIONS]      # every suggestion is a known action, once
         self.assertEqual(len(values), len(set(values)))
 

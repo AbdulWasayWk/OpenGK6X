@@ -1,10 +1,10 @@
 """Physical layouts: which of a model's key-map entries are real keys on a given keyboard, and where.
 
 The official key map for a model is a template covering several hardware variants (volume-knob positions, split
-spacebar, navigation keys). A layout says which keys a keyboard really has, moves/renames some (the GK104 Pro's
-knob sits where Print Screen / Scroll Lock / Pause are), and adds decorations (its screen).
+spacebar, navigation keys). A layout says which keys a keyboard really has (the GK104 Pro has three knobs where
+Print Screen / Scroll Lock / Pause are) and adds decorations (its screen).
 
-A knob is three key-map entries (turn left, turn right, press), each bound like a key; the picture and the Keys
+Each knob is three key-map entries (turn left, turn right, press), each bound like a key; the picture and the Keys
 page show them as one knob.
 """
 import copy
@@ -26,6 +26,11 @@ class Knob:
         return {"left": self.left, "right": self.right, "press": self.press}
 
 
+def _knob_at(name: str, key: str) -> Knob:
+    """The template's knob variant of `key` ("<key> VOLU/VOLD/MUTE"), drawn in that key's place."""
+    return Knob(name, left=f"{key} VOLU", right=f"{key} VOLD", press=f"{key} MUTE", at=(key,))
+
+
 @dataclass(frozen=True)
 class Layout:
     label: str
@@ -41,10 +46,12 @@ NAV = ("Insert", "Home", "Page Up", "Delete", "End", "Page Down")
 
 LAYOUTS = {
     "gk104pro": Layout(
-        "Skyloong GK104 Pro (knob and screen)",
+        "Skyloong GK104 Pro (3 knobs and screen)",
         hide=("Print Screen", "Scroll Lock", "Pause") + NAV,
-        knobs=(Knob("Knob", left="Scroll Lock VOLU", right="Scroll Lock VOLD", press="Scroll Lock MUTE",
-                    at=("Print Screen", "Scroll Lock", "Pause")),),     # tested 2026-10-11 (matrix 125, 126, 124)
+        # three knobs (user, 2026-10-12); the middle one tested 2026-10-11: turn left = VOLU (125), right = VOLD
+        # (126), press = MUTE (124). Official defaults: zoom / pause lighting, brightness / lighting on-off, volume
+        knobs=(_knob_at("Left knob", "Print Screen"), _knob_at("Middle knob", "Scroll Lock"),
+               _knob_at("Right knob", "Pause")),
         screen_over=NAV,
         unsupported=frozenset({"Space dual-role"}),      # tested 2026-10-11: long press just repeats Space
         wireless_standard_only=True),                    # tested 2026-10-11: profile 1 remaps not used on 2.4 GHz

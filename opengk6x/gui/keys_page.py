@@ -35,6 +35,7 @@ class KeysPage(QWidget):
         self.slot = STANDARD
         self.fn = False
         self.selected: str | None = None
+        self.knob_role = "left"                         # the knob part edited last (kept when switching knobs)
         self.busy = False
 
         lay = QVBoxLayout(self)
@@ -88,7 +89,7 @@ class KeysPage(QWidget):
         lay.addLayout(layer_row)
 
         self.view = KeyboardView()
-        self.view.key_clicked.connect(self._select)
+        self.view.key_clicked.connect(self._clicked)
         lay.addWidget(self.view)
 
         # below the keyboard: the editor, or a panel for a slot OpenGK6X hasn't set up
@@ -357,6 +358,12 @@ class KeysPage(QWidget):
         self.fn = i == 1
         self.refresh()
 
+    def _clicked(self, name):
+        knob = self._knob(name)
+        if knob:                                        # a knob: the part edited last, on this knob
+            name = knob["parts"].get(self.knob_role, name)
+        self._select(name)
+
     def _select(self, name):
         self.selected = name
         self._update_editor()
@@ -381,6 +388,7 @@ class KeysPage(QWidget):
     def _knob_part(self, role: str):
         knob = self._knob(self.selected)
         if knob and role in knob["parts"]:
+            self.knob_role = role
             self._select(knob["parts"][role])
 
     def _press_effect_changed(self):

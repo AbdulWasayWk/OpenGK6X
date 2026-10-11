@@ -1,14 +1,15 @@
 """A picture of the keyboard, drawn from the model's key positions (keymap.js), with clickable keys.
 
-A knob (layouts.display_keys: its three entries share one area) is drawn as one control: the dial in the middle
-is the press, the sides are turn left / turn right; each part is clicked and labelled like a key."""
+A knob (layouts.display_keys: its three entries share one area) is drawn as one round dial showing its three
+actions: ⟲ turn left on top, the press in the middle, ⟳ turn right below. Clicking it emits one of its parts
+(`key_clicked`); `knob_of` tells which knob a part belongs to."""
 from dataclasses import dataclass
 
 from PySide6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPalette, QPen
 from PySide6.QtWidgets import QSizePolicy, QToolTip, QWidget
 
-KNOB_ARROWS = {"left": "⟲", "right": "⟳"}
+KNOB_LINES = (("left", "⟲ "), ("press", ""), ("right", "⟳ "))         # top to bottom
 
 
 @dataclass
@@ -118,21 +119,14 @@ class KeyboardView(QWidget):
         self._layout()
         super().resizeEvent(e)
 
-    @staticmethod
-    def _knob_zones(r: QRectF) -> dict[str, QRectF]:
-        """A knob's parts: the round dial in the middle (press), the sides (turn left / turn right)."""
-        d = min(r.height(), r.width() / 2.6) * 0.9
-        c = r.center()
-        dial = QRectF(c.x() - d / 2, c.y() - d / 2, d, d)
-        return {"left": QRectF(r.left(), r.top(), dial.left() - r.left(), r.height()), "press": dial,
-                "right": QRectF(dial.right(), r.top(), r.right() - dial.right(), r.height())}
+    def knob_of(self, name: str | None) -> dict | None:
+        """{"rect", "parts": {role: key name}} of the knob `name` is a part of, or None."""
+        return next((k for k in self._knobs.values() if name in k["parts"].values()), None)
 
     def _key_at(self, pos: QPointF) -> str | None:
         for knob in self._knobs.values():
             if knob["rect"].contains(pos):
-                zones = self._knob_zones(knob["rect"])
-                role = next((role for role in ("press", "left", "right") if zones[role].contains(pos)), "press")
-                return knob["parts"].get(role)
+                return knob["parts"].get("press") or next(iter(knob["parts"].values()))
         return next((n for n, r in self._rects.items() if r.contains(pos)), None)
 
     # painting
@@ -212,67 +206,61 @@ class KeyboardView(QWidget):
                     dark: bool):
         s = self._scale
         r, parts = knob["rect"], knob["parts"]
-        zones = self._knob_zones(r)
-        active = next((role for role, name in parts.items() if name == self._selected), None)
         looks = {role: self._looks.get(name) or KeyLook("") for role, name in parts.items()}
-
-        def fill(role: str, base: QColor) -> QColor:
-            c = mix(base, accent, 0.28) if looks[role].changed else base
-            if parts.get(role) == self._hover:
-                c = mix(c, accent, 0.15)
-            return mix(c, accent, 0.2) if role == active else c
-
-        housing = QPainterPath()
-        housing.addRoundedRect(r, 5 * s, 5 * s)
-        edge = QPen(mix(key_bg, QColor(0, 0, 0), 0.35), max(1.0, s))
-        painter.setPen(edge)
-        painter.setBrush(key_bg)
-        painter.drawPath(housing)
-        painter.save()
-        painter.setClipPath(housing)
-        painter.setPen(Qt.NoPen)
-        for role in ("left", "right"):
-            painter.setBrush(fill(role, key_bg))
-            painter.drawRect(zones[role])
-        painter.restore()
-        for role, arrow in KNOB_ARROWS.items():
-            z = zones[role].adjusted(3 * s, 2 * s, -3 * s, -2 * s)
-            look = looks[role]
-            f = QFont(self.font())
-            f.setPixelSize(max(8, int(13 * s)))
-            painter.setFont(f)
-            painter.setPen(dim)
-            if not look.text or z.width() < 28:            # small knobs: arrows only (labels in the tooltip)
-                painter.drawText(z, Qt.AlignCenter, arrow)
-                continue
-            top = QRectF(z.left(), z.top(), z.width(), z.height() * 0.36)
-            painter.drawText(top, Qt.AlignCenter, arrow)
-            self._label(painter, look.text, QRectF(z.left(), top.bottom(), z.width(), z.bottom() - top.bottom()),
-                        look.changed, self._changed_color(accent, dark) if look.changed else fg)
-
-        dial = zones["press"]
-        base = mix(key_bg, QColor(255, 255, 255), 0.1) if dark else mix(key_bg, QColor(0, 0, 0), 0.1)
-        painter.setPen(edge)
-        painter.setBrush(fill("press", base))
+        active = next((role for role, name in parts.items() if name == self._selected), None)
+        d = min(r.width(), r.height())
+        dial = QRectF(r.center().x() - d / 2, r.center().y() - d / 2, d, d)
+        base = mix(key_bg, QColor(255, 255, 255), 0.08) if dark else mix(key_bg, QColor(0, 0, 0), 0.07)
+        if self._hover in parts.values():
+            base = mix(base, accent, 0.15)
+        painter.setPen(QPen(mix(base, QColor(0, 0, 0), 0.35), max(1.0, s)))
+        painter.setBrush(base)
         painter.drawEllipse(dial)
-        painter.setPen(QPen(mix(base, QColor(0, 0, 0), 0.25), max(1.0, s)))
+        painter.setPen(QPen(mix(base, QColor(0, 0, 0), 0.18), max(1.0, 0.8 * s)))
         painter.setBrush(Qt.NoBrush)
-        painter.drawEllipse(dial.adjusted(3 * s, 3 * s, -3 * s, -3 * s))        # the knob's grip ring
-        look = looks["press"]
-        if look.text and dial.width() >= 28:
-            inset = dial.width() * 0.16
-            self._label(painter, look.text, dial.adjusted(inset, inset, -inset, -inset), look.changed,
-                        self._changed_color(accent, dark) if look.changed else fg)
+        painter.drawEllipse(dial.adjusted(2.5 * s, 2.5 * s, -2.5 * s, -2.5 * s))     # the knob's grip ring
+
+        # its three actions, one line each; the line being edited gets a highlight
+        side = d * 0.78
+        h = side / 3
+        top = dial.center().y() - side / 2
+        for i, (role, arrow) in enumerate(KNOB_LINES):
+            if role not in parts:
+                continue
+            look = looks[role]
+            width = d * (0.84 if role == "press" else 0.74)
+            line = QRectF(dial.center().x() - width / 2, top + i * h, width, h)
+            if role == active:
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(mix(base, accent, 0.35))
+                painter.drawRoundedRect(line.adjusted(-1 * s, 0, 1 * s, 0), h / 2, h / 2)
+            text = arrow + look.text if look.text else arrow.strip()
+            color = self._changed_color(accent, dark) if look.changed else fg if look.text else dim
+            self._line(painter, text, line, look.changed or role == "press" and bool(look.text), color)
 
         if active:
             painter.setPen(QPen(accent, max(2.0, 3 * s)))
             painter.setBrush(Qt.NoBrush)
-            painter.drawPath(housing)
-            painter.setPen(QPen(accent, max(1.5, 2 * s)))
-            if active == "press":
-                painter.drawEllipse(dial)
-            else:
-                painter.drawRoundedRect(zones[active].adjusted(2 * s, 2 * s, -2 * s, -2 * s), 4 * s, 4 * s)
+            painter.drawEllipse(dial)
+        elif any(look.changed for look in looks.values()):
+            painter.setPen(QPen(mix(base, accent, 0.6), max(1.0, 1.5 * s)))
+            painter.setBrush(Qt.NoBrush)
+            painter.drawEllipse(dial.adjusted(0.5 * s, 0.5 * s, -0.5 * s, -0.5 * s))
+
+    def _line(self, painter: QPainter, text: str, area: QRectF, bold: bool, color: QColor):
+        """One line of text, as large as fits (6-11 px at this scale), shortened with … if it still doesn't."""
+        font = QFont(self.font())
+        font.setBold(bold)
+        px = max(6, int(min(area.height() * 0.95, 11 * self._scale)))
+        while True:
+            font.setPixelSize(px)
+            if QFontMetricsF(font).horizontalAdvance(text) <= area.width() or px <= 6:
+                break
+            px -= 1
+        painter.setFont(font)
+        painter.setPen(color)
+        text = QFontMetricsF(font).elidedText(text, Qt.ElideRight, area.width() + 1)
+        painter.drawText(area, Qt.AlignCenter, text)
 
     def _fit(self, text: str, area: QRectF, size: float, bold: bool) -> QFont:
         """The largest font (down to 7 px) at which `text` fits in `area`, wrapping at spaces and '+'."""
@@ -306,9 +294,11 @@ class KeyboardView(QWidget):
     def event(self, e):
         if e.type() == QEvent.ToolTip:
             name = self._key_at(QPointF(e.pos()))
-            look = self._looks.get(name) if name else None
+            knob = self.knob_of(name)
+            names = [knob["parts"][role] for role, _ in KNOB_LINES if role in knob["parts"]] if knob else [name]
+            tips = [self._looks[n].tooltip for n in names if n in self._looks and self._looks[n].tooltip]
             if name:
-                QToolTip.showText(e.globalPos(), look.tooltip if look and look.tooltip else name, self)
+                QToolTip.showText(e.globalPos(), "\n".join(tips) or name, self)
             else:
                 QToolTip.hideText()
             return True
