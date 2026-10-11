@@ -350,11 +350,14 @@ class ProfileData:
 
 
 def build(profile: dict, matrix: tuple[int, int], load_effect, load_macro, app_compatible: bool = False,
-          lighting: bool = True) -> ProfileData:
+          lighting: bool = True, spare: list[int] = ()) -> ProfileData:
     """Compile a profile. app_compatible=True reproduces the official app exactly, including its macro-slot bugs
     (Fn-layer macros all get slot 0; an Fn macro overwrites the slot of the main key at the same index). By default
     each macro key gets the slot of its own macro. lighting=False leaves out the lighting data (for keyboards
-    whose profiles have no lighting of their own, `hasModeLe` false; the firmware rejects it)."""
+    whose profiles have no lighting of their own, `hasModeLe` false; the firmware doesn't use it).
+
+    The firmware only runs an Fn-layer macro whose slot is also on a normal-layer key (GK104 Pro, 2026-10-11).
+    So each slot used only on the Fn layer is also put on a `spare` matrix position (one with no physical key)."""
     cols, rows = matrix
     size = cols * rows * 4
     macros, macro_index, guids = macro_data(profile, load_macro)
@@ -367,17 +370,45 @@ def build(profile: dict, matrix: tuple[int, int], load_effect, load_macro, app_c
 
     main_slot = (lambda idx, _key: macro_index[idx]) if app_compatible else own_slot
     fn_slot = (lambda _idx, _key: 0) if app_compatible else own_slot
+    keys = key_table(keyset, size, main_slot) if isinstance(keyset, list) else None
+    fn_keys = key_table(fn_keyset, size, fn_slot) if isinstance(fn_keyset, list) else None
+    if not app_compatible and keys is not None and fn_keys is not None:
+        keys = _register_fn_macros(keys, fn_keys, spare)
     return ProfileData(
         mode=_u8(profile.get("ModeIndex")),
         matrix=matrix,
-        keys=key_table(keyset, size, main_slot) if isinstance(keyset, list) else None,
-        fn_keys=key_table(fn_keyset, size, fn_slot) if isinstance(fn_keyset, list) else None,
+        keys=keys,
+        fn_keys=fn_keys,
         colors=color_block(profile["LEData"]) if isinstance(profile.get("LEData"), (dict, list)) or
         ("LEData" in profile and profile["LEData"] is None) else None,
         macros=macros,
         light_keys=light_keys,
         light=light,
     )
+
+
+def _macro_slots(table: bytes) -> dict[int, int]:
+    """slot → first matrix index whose value is a macro key."""
+    out = {}
+    for i in range(0, len(table), 4):
+        v = struct.unpack_from("<I", table, i)[0]
+        if v >> 8 == MACRO_KEY >> 8 and v & 0xFF != 0xFF:
+            out.setdefault(v & 0xFF, i // 4)
+    return out
+
+
+def _register_fn_macros(keys: bytes, fn_keys: bytes, spare: list[int]) -> bytes:
+    missing = sorted(set(_macro_slots(fn_keys)) - set(_macro_slots(keys)))
+    if not missing:
+        return keys
+    table = bytearray(keys)
+    free = [i for i in spare if i * 4 + 4 <= len(table)]
+    if len(missing) > len(free):
+        raise ValueError(f"{len(missing)} macros are only on the Fn layer, but the keyboard has room for "
+                         f"{len(free)}; also put the others on a normal-layer key")
+    for slot, index in zip(missing, free):
+        struct.pack_into("<I", table, index * 4, (MACRO_KEY & 0xFFFFFF00) | slot)
+    return bytes(table)
 
 
 def packets(data: ProfileData) -> list[bytes]:

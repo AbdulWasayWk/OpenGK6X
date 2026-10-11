@@ -149,6 +149,11 @@ unset entries `FFFFFFFF`. Macro keys: `0A0100xx` with xx = macro slot.
 
 Full list (207 entries, with UI names): app `ui/js/9271.*.js` → `vendor-app/decoded/keyfuncs.json`.
 
+**Fn-layer macros ✔ (GK104 Pro)**: the firmware runs an Fn-layer macro key `0A0100SS` only if slot SS also
+appears on some normal-layer key; otherwise nothing happens. Workaround: put `0A0100SS` on a normal-layer matrix
+position without a physical key (unused positions 9 and 111 on this model). The official app instead writes slot 0
+for every Fn-layer macro. **Space long-press values `0A0C00MM`**: no effect on this firmware (Space just repeats).
+
 ### Macros (`25`)
 512 B per macro, slots in order of first use: header `u16 0x55AA, u16 CRC16(actions), u8 count, u8 slot,
 u8 stop mode, u8 repeats`, then `count` × 4 B actions `[data0, data1, status, type]`:

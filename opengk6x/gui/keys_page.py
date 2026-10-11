@@ -134,7 +134,8 @@ class KeysPage(QWidget):
 
     # --- display ---------------------------------------------------------------------------------
     def _model_changed(self):
-        self.view.set_keys(self.state.keymap, self.state.settings.get("show_variants", False))
+        self.view.set_keys(self.state.display_keys(), self.state.screen_area())
+        self.picker.set_hidden_categories(self.state.unsupported())
         while self.preset_row.count():
             item = self.preset_row.takeAt(0)
             if item.widget():
@@ -193,9 +194,14 @@ class KeysPage(QWidget):
         prof = self._profile()
         layer = (prof.fn_keys if self.fn else prof.keys) if prof else {}
         looks = {}
-        for k in self.state.keymap:
+        for k in self.state.display_keys():
             name = k["KeyName"]
             show = k.get("Show") or name
+            if k.get("Shape") == "round" and name not in layer:
+                default = self.state.default_binding(self.slot, name, self.fn)
+                looks[name] = KeyLook(show, False, f"{show}: {b.label(default) if default is not None else '—'}"
+                                                   " (default)")
+                continue
             if name in layer:
                 binding = layer[name]
                 text = f"⏵ {binding['macro']}" if isinstance(binding, dict) else b.cap_label(b.parse(binding))
@@ -224,7 +230,9 @@ class KeysPage(QWidget):
             self.picker.setEnabled(False)
             return
         layer = prof.fn_keys if self.fn else prof.keys
-        self.key_title.setText(("Fn + " if self.fn else "") + name)
+        label = next((k.get("Show") for k in self.state.display_keys() if k["KeyName"] == name and k.get("Shape")),
+                     None) or name
+        self.key_title.setText(("Fn + " if self.fn else "") + label)
         if name == "Fn":
             self.key_current.setText("The Fn key itself can't be changed.")
             self.key_default.setText("")

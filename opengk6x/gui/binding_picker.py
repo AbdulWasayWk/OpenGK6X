@@ -161,13 +161,20 @@ class BindingPicker(QWidget):
         state.macros_changed.connect(self.rebuild)
         self.rebuild()
 
+    def set_hidden_categories(self, hidden):
+        self._hidden = set(hidden)
+        self.rebuild()
+
     def rebuild(self):
         self.tree.clear()
         groups: dict[str, QTreeWidgetItem] = {}
-        for cat in CATEGORY_ORDER + ["Macros"]:
+        hidden = getattr(self, "_hidden", set())
+        for cat in [c for c in CATEGORY_ORDER if c not in hidden] + ["Macros"]:
             groups[cat] = QTreeWidgetItem(self.tree, [cat])
             groups[cat].setFlags(Qt.ItemIsEnabled)
         for a in b.catalog():
+            if a.category not in groups:
+                continue
             item = QTreeWidgetItem(groups[a.category], [a.label])
             item.setData(0, Qt.UserRole, a.name)
             item.setToolTip(0, f"{a.label}  [{a.name}]")

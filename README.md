@@ -15,7 +15,6 @@ Bluetooth.
   - media keys, browser keys, calculator, mouse buttons, sleep
   - lighting controls (brightness, effect speed, on/off)
   - **switch profile** keys
-  - **Space dual-role**: tap for Space, hold for Ctrl / Shift / Alt / Super
   - **macros**, run N times, while held, or until pressed again
 - **Macros**: record what you type (with the pauses), or build them step by step (key press/release/tap, waits,
   mouse clicks); a compact text form (`+ctrl c -ctrl 100ms enter`) for quick edits.
@@ -26,10 +25,11 @@ Bluetooth.
   or its whole data folder; plus one-file OpenGK6X backups.
 - A command line (`opengk6x`) for all of it.
 
-Better than the original: every profile starts from the layout printed on the keys (the official app's defaults for
-profiles 2 and 3 are a Mac layout and "Backspace = Delete"; the Mac layout is offered as a starting point instead),
-**macros work on the Fn layer** (the official app gives them all the first macro), and writing a profile **keeps the
-lighting effect you picked** (the official app resets it).
+Better than the original: the keyboard picture is your keyboard (the GK104 Pro's **knob** — turn left, press, turn
+right — is remappable like any key), every profile starts from the layout printed on the keys (the official app's
+defaults for profiles 2 and 3 are a Mac layout and "Backspace = Delete"; the Mac layout is offered as a starting
+point instead), **macros work on the Fn layer** (in the official app they only run if also on a normal key, and then
+always the first macro), and writing a profile **keeps the lighting effect you picked** (the official app resets it).
 
 ![Lighting page](docs/screenshots/lighting.png)
 
@@ -101,6 +101,9 @@ opengk6x export --official folder/              # files the official app can imp
 
 - Settings can only be written over the USB cable (the official app has the same limit).
 - On the GK104 Pro, profiles 1–3 don't have their own lighting; the keyboard's effect choice (Fn + = / −) is shared.
+- The official app's "Space, long press" functions do nothing on the GK104 Pro, so OpenGK6X doesn't offer them there.
+- Physical layout: Keyboard page → *Physical layout* (the GK104 Pro by default; a full-size 104-key option for other
+  keyboards of the same model).
 - The keyboard can't report what's stored in it.
 - Online mode (lighting and key actions run by the PC while the app is open) isn't there yet.
 

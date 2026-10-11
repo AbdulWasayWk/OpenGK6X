@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (QButtonGroup, QColorDialog, QComboBox, QDialog, Q
                                QSpinBox, QVBoxLayout, QWidget)
 
 from .. import effects as fx
-from .common import hint, is_variant
+from .common import hint
 from .keyboard_view import KeyboardView, KeyLook
 
 
@@ -40,7 +40,7 @@ class EffectPreview(QWidget):
 
     key_clicked = Signal(str, int)       # key name, LED index (-1 if it has none)
 
-    def __init__(self, keymap: list[dict] = (), parent=None):
+    def __init__(self, keys: list[dict] = (), screen: dict | None = None, parent=None):
         super().__init__(parent)
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -51,13 +51,15 @@ class EffectPreview(QWidget):
         self.timer.timeout.connect(self._tick)
         self.player: fx.Player | None = None
         self.marked: set[int] = set()            # LEDs drawn with a selection outline (editor)
-        self.set_keymap(list(keymap))
+        self.set_keys(list(keys), screen)
 
-    def set_keymap(self, keymap: list[dict]):
-        self.keymap = keymap
-        self.view.set_keys(keymap)
-        self._by_led = {k["LocationCode"]: k["KeyName"] for k in keymap if not is_variant(k)}
-        self.view.set_looks({k["KeyName"]: KeyLook("") for k in keymap})
+    def set_keys(self, keys: list[dict], screen: dict | None = None):
+        """Keys as drawn (layouts.display_keys); knobs (round) have no LED and stay unlit."""
+        self.keymap = keys
+        self.view.set_keys(keys, screen)
+        self._by_led = {k["LocationCode"]: k["KeyName"] for k in keys
+                        if 0 <= k["LocationCode"] < fx.LED_COUNT and k.get("Shape") != "round"}
+        self.view.set_looks({k["KeyName"]: KeyLook(k.get("Show", "") if k.get("Shape") else "") for k in keys})
 
     def play(self, effect: dict | None, speed: float = 1.0):
         self.player = fx.Player(effect) if effect else None
@@ -77,7 +79,9 @@ class EffectPreview(QWidget):
         leds = self.player.step()
         colors = {name: QColor(*leds.get(led, (0, 0, 0))) for led, name in self._by_led.items()}
         self.view.set_colors(colors)
-        self.view.set_looks({name: KeyLook("●" if led in self.marked else "") for led, name in self._by_led.items()})
+        looks = {k["KeyName"]: KeyLook(k.get("Show", "")) for k in self.keymap if k.get("Shape")}
+        looks.update({name: KeyLook("●" if led in self.marked else "") for led, name in self._by_led.items()})
+        self.view.set_looks(looks)
 
     def _clicked(self, name: str):
         led = next((k["LocationCode"] for k in self.keymap if k["KeyName"] == name), -1)
@@ -88,7 +92,7 @@ class EffectEditor(QDialog):
     """Make or change an effect from a few settings, with a live preview. Click keys to choose which ones light
     up (or, for key colors, to paint them)."""
 
-    def __init__(self, keymap: list[dict], effect: dict | None = None, parent=None):
+    def __init__(self, keymap: list[dict], effect: dict | None = None, parent=None, screen: dict | None = None):
         super().__init__(parent)
         self.setWindowTitle("Lighting effect")
         self.resize(1100, 720)
@@ -97,7 +101,7 @@ class EffectEditor(QDialog):
         self.guid = (effect or {}).get("GUID")
         self.result_effect: dict | None = None
         leds_all = sorted(k["LocationCode"] for k in keymap if 0 <= k["LocationCode"] < fx.LED_COUNT
-                          and not is_variant(k))
+                          and k.get("Shape") != "round")
         self.selection = set(params.get("leds") or leds_all)
         self.colors: dict[str, str] = dict(params.get("colors") or {})
 
@@ -167,7 +171,7 @@ class EffectEditor(QDialog):
         form.addRow("Other keys", self.bg_widget)
         lay.addLayout(form)
 
-        self.preview = EffectPreview(keymap)
+        self.preview = EffectPreview(keymap, screen)
         self.preview.key_clicked.connect(self._key_clicked)
         lay.addWidget(self.preview, 1)
         lay.addWidget(hint("Times are approximate: the keyboard plays effects at its own pace, which Fn + ← / → "

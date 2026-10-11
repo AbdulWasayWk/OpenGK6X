@@ -126,7 +126,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] **First hardware write (2026-10-11): profile 1 = default + App→Q.** User confirmed Menu types q; switched back
       to standard with `opengk6x mode standard`. Lighting in profiles: see findings
 - [x] Bindings catalog, profile store (changes from the standard layout), macros, import/export (official + backup)
-- [ ] Verify on hardware: Fn-layer key, macro playback (incl. Fn-layer macro slots), Space dual-role, profile_N keys
+- [x] Verified on hardware: macros (normal + Fn layer with our registration fix), profile_N keys, knob remap;
+      Space long-press types don't work on this firmware (hidden)
+- [ ] Wireless: do written profiles/effects work over 2.4 GHz / Bluetooth? (asked, not yet tested)
 - [x] Lighting: custom effects list (standard profile `DriverLE`, mode 1, no `0B`), effect player/preview, editor
 - [x] Custom list written on hardware by the user from the GUI (3 library effects): works, Fn+− cycles them;
       effects run much slower on the keyboard than the 50 ms-tick preview (accepted by the user)
@@ -148,6 +150,15 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## Findings log
 <!-- Newest first. Format: YYYY-MM-DD: finding (source: capture/file/test) -->
+- 2026-10-11: **Hardware checklist (profile 1, user):** macros on normal keys ✓ (slots 0 and 1); `profile_standard`
+  on Fn+1 ✓; Menu→q ✓. **Fn-layer macros run only if their slot is also on a normal-layer key**: Fn-only slot 1
+  typed nothing; slot also on F7 ✓; Fn-only slot 1 *registered at the unused matrix position 9* ✓ (our fix,
+  `profile._register_fn_macros`; spare positions from `layouts.spare_indexes`). **Space "long-press" types
+  (`0x0A0C00MM`) don't work on this firmware**: tap = space, holding just repeats (hidden for the GK104 Pro).
+  **Physical GK104 Pro:** no PrtSc/ScrLk/Pause and no Ins/Home/PgUp/Del/End/PgDn keys; a **knob** in their place
+  and a **screen** over the nav block. The knob = the template's "Scroll Lock" knob variant: turn left = matrix 125
+  ("Scroll Lock VOLU"), turn right = 126 ("VOLD"), press = 124 ("MUTE"); defaults brightness −/+ and lighting
+  on/off, Fn + turn = volume. Knob press remapped to Mute ✓. (source: hardware + user)
 - 2026-10-11: **Custom effects list works** (written from the GUI by the user, 3 library effects, 40 packets): Fn+−
   cycles them; they run much slower than the preview. **Reply status `01` is the normal OK for lighting writes
   (`26`/`27`)**, `00` for `21`/`22`/`31`; so in profiles 1–3 the lighting data was accepted, just not used on this
@@ -197,6 +208,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## Decision log
 <!-- Newest first. Format: YYYY-MM-DD: decision; reason -->
+- 2026-10-11: **Physical layouts** (`layouts.py`, our data): the model's key map is a multi-variant template; a
+  layout picks the real keys (GK104 Pro: knob drawn as 3 round keys at PrtSc/ScrLk/Pause, screen over the nav
+  block). Stored per model in `~/.config/opengk6x/<model>/keyboard.json`; default GK104 Pro for 656802056.
+  Every profile starts from the official profile 1 default (profiles 2/3 defaults are a Mac layout / Backspace =
+  Delete; the Mac layout is a preset).
 - 2026-10-11: The user handed over ownership of the plan ("make it more intuitive and better than the original, with
   all its features"). Order: bindings/profiles/macros (CLI) → import/export (official files + our backup) → GUI →
   custom effects (Fn+−) → online mode, packaging, wireless check.

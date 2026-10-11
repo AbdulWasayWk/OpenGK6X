@@ -5,7 +5,6 @@ from PySide6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QColor, QFont, QFontMetricsF, QPainter, QPainterPath, QPalette, QPen
 from PySide6.QtWidgets import QSizePolicy, QToolTip, QWidget
 
-from .common import is_variant
 
 
 @dataclass
@@ -34,10 +33,14 @@ class KeyboardView(QWidget):
         self._selected: str | None = None
         self._hover: str | None = None
         self._rects: dict[str, QRectF] = {}
+        self._screen: dict | None = None
+        self._screen_rect: QRectF | None = None
 
     # data
-    def set_keys(self, keymap: list[dict], show_variants: bool = False):
-        self._keys = [k for k in keymap if show_variants or not is_variant(k)]
+    def set_keys(self, keys: list[dict], screen: dict | None = None):
+        """Keys to draw (layouts.display_keys) and the keyboard's screen area, if any."""
+        self._keys = list(keys)
+        self._screen = screen
         self._fit_height()
         self._layout()
         self.update()
@@ -68,8 +71,7 @@ class KeyboardView(QWidget):
 
     def _bounds(self) -> QRectF:
         r = QRectF()
-        for k in self._keys:
-            p = k["Position"]
+        for p in [k["Position"] for k in self._keys] + ([self._screen] if self._screen else []):
             r = r.united(QRectF(p["Left"], p["Top"], p["Width"], p["Height"]))
         return r.adjusted(-14, -14, 14, 14)
 
@@ -87,6 +89,9 @@ class KeyboardView(QWidget):
             p = k["Position"]
             self._rects[k["KeyName"]] = QRectF(ox + p["Left"] * s, oy + p["Top"] * s, p["Width"] * s,
                                                p["Height"] * s).adjusted(1.5 * s, 1.5 * s, -1.5 * s, -1.5 * s)
+        p = self._screen
+        self._screen_rect = QRectF(ox + p["Left"] * s, oy + p["Top"] * s, p["Width"] * s, p["Height"] * s
+                                   ).adjusted(3 * s, 3 * s, -3 * s, -3 * s) if p else None
 
     def _fit_height(self):
         """Keep the keyboard's shape: as tall as the width needs (the page gives the rest to other widgets)."""
@@ -118,6 +123,16 @@ class KeyboardView(QWidget):
         painter.setBrush(panel)
         painter.drawRoundedRect(self._panel, 12 * s, 12 * s)
 
+        if self._screen_rect is not None:
+            painter.setBrush(QColor(18, 20, 24))
+            painter.setPen(QPen(QColor(70, 74, 82), max(1.0, s)))
+            painter.drawRoundedRect(self._screen_rect, 4 * s, 4 * s)
+            painter.setPen(QColor(120, 160, 200))
+            f = QFont(self.font())
+            f.setPixelSize(max(7, int(10 * s)))
+            painter.setFont(f)
+            painter.drawText(self._screen_rect, Qt.AlignCenter, "Screen")
+
         key_bg = mix(pal.color(QPalette.Button), QColor(255, 255, 255) if dark else QColor(255, 255, 255),
                      0.06 if dark else 0.5)
         text = pal.color(QPalette.ButtonText)
@@ -132,14 +147,18 @@ class KeyboardView(QWidget):
             if name == self._hover:
                 bg = mix(bg, accent, 0.15)
             path = QPainterPath()
-            path.addRoundedRect(r, 5 * s, 5 * s)
+            if key.get("Shape") == "round":
+                side = min(r.width(), r.height())
+                path.addEllipse(QRectF(r.center().x() - side / 2, r.center().y() - side / 2, side, side))
+            else:
+                path.addRoundedRect(r, 5 * s, 5 * s)
             painter.setPen(QPen(mix(bg, QColor(0, 0, 0), 0.35), max(1.0, s)))
             painter.setBrush(bg)
             painter.drawPath(path)
             if name == self._selected:
                 painter.setPen(QPen(accent, max(2.0, 3 * s)))
                 painter.setBrush(Qt.NoBrush)
-                painter.drawRoundedRect(r.adjusted(-1, -1, 1, 1), 5 * s, 5 * s)
+                painter.drawPath(path)
 
             fg = (QColor(0, 0, 0) if led.lightness() > 140 else QColor(255, 255, 255)) if led is not None else text
             inner = r.adjusted(4 * s, 3 * s, -4 * s, -3 * s)

@@ -80,6 +80,24 @@ class TestBlocks(unittest.TestCase):
         self.assertEqual(slot(data.fn_keys, 2), 1)
         self.assertEqual(slot(data.keys, 5), 0)                                   # unaffected by Fn+2's macro
 
+    def test_fn_only_macros_registered(self):
+        """A slot used only on the Fn layer is also put on a spare matrix position (firmware requirement)."""
+        profile = {"ModeIndex": 2, "KeySet": [{"Index": 1, "DriverValue": "0x0A010001",
+                                               "Task": {"Type": "Macro", "Data": {"GUID": "TEST-MACRO-COMBO"}}}],
+                   "FnKeySet": [{"Index": 2, "DriverValue": "0x0A010001",
+                                 "Task": {"Type": "Macro", "Data": {"GUID": "TEST-MACRO-MOUSE"}}}]}
+        data = pr.build(profile, MATRIX, load_effect, load_macro, spare=[9, 111])
+        self.assertEqual(data.fn_keys[8:12], bytes([1, 0, 1, 0x0A]))             # Fn+2 → slot 1
+        self.assertEqual(data.keys[9 * 4:9 * 4 + 4], bytes([1, 0, 1, 0x0A]))    # registered at 9
+        self.assertEqual(data.keys[111 * 4:111 * 4 + 4], b"\xff" * 4)
+        # a slot already on the normal layer needs nothing extra
+        profile["FnKeySet"][0]["Task"]["Data"]["GUID"] = "TEST-MACRO-COMBO"
+        data = pr.build(profile, MATRIX, load_effect, load_macro, spare=[9, 111])
+        self.assertEqual(data.keys[9 * 4:9 * 4 + 4], b"\xff" * 4)
+        profile["FnKeySet"][0]["Task"]["Data"]["GUID"] = "TEST-MACRO-MOUSE"
+        with self.assertRaises(ValueError):
+            pr.build(profile, MATRIX, load_effect, load_macro, spare=[])
+
     def test_without_lighting(self):
         profile = json.loads((FIXTURES / "profiles" / "full.json").read_text())
         ops = {x[0] for x in pr.packets(pr.build(profile, MATRIX, load_effect, load_macro, lighting=False))}

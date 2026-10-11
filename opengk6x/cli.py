@@ -116,7 +116,8 @@ def _apply(store: Store, model: int, slot: str, profiles: dict, *, yes: bool, dr
     vendor = VendorData()
     with wired_keyboard() as kb:
         if dry_run:
-            n = len(compile_packets(profiles[slot], slot, vendor, model, kb.matrix(), store.macros()))
+            n = len(compile_packets(profiles[slot], slot, vendor, model, kb.matrix(), store.macros(),
+                                    store.layout(model)))
             print(f"profile {slot}: {n} packets (dry run, nothing sent)")
             return
         if profiles[slot].applied is None:

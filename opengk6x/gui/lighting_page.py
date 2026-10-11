@@ -146,7 +146,7 @@ class LightingPage(QWidget):
         return self._library_names.get(guid, guid)
 
     def _model_changed(self):
-        self.preview.set_keymap(self.state.keymap)
+        self.preview.set_keys(self.state.display_keys(), self.state.screen_area())
         self._library_names = {}
         if self.state.model is not None and self.state.vendor is not None:
             self._library_names = {e["GUID"]: e["Name"] for e in self.state.vendor.effect_library(self.state.model)}
@@ -314,7 +314,7 @@ class LightingPage(QWidget):
 
     # --- my effects ------------------------------------------------------------------------------
     def _open_editor(self, effect: dict | None):
-        dlg = EffectEditor([k for k in self.state.keymap], effect, self)
+        dlg = EffectEditor(self.state.display_keys(), effect, self, self.state.screen_area())
         if dlg.exec() and dlg.result_effect:
             self.state.store.save_effect(dlg.result_effect)
             self._fill_tree(select=dlg.result_effect["GUID"])

@@ -58,7 +58,7 @@ def status(store: Store, vendor: VendorData, model: int, slot: str, prof: Profil
         return UNKNOWN
     if prof.applied is None:
         return NOT_WRITTEN
-    current = fingerprint(compile_packets(prof, slot, vendor, model, matrix, store.macros()))
+    current = fingerprint(compile_packets(prof, slot, vendor, model, matrix, store.macros(), store.layout(model)))
     return APPLIED if current == prof.applied else CHANGED
 
 
@@ -93,7 +93,7 @@ def write_profile(kb: device.Keyboard, store: Store, vendor: VendorData, model: 
     if kb.model_id() != model:
         raise device.DeviceError("a different keyboard model is connected")
     prof = profiles[slot]
-    packets = compile_packets(prof, slot, vendor, model, kb.matrix(), store.macros())
+    packets = compile_packets(prof, slot, vendor, model, kb.matrix(), store.macros(), store.layout(model))
     t = time.monotonic()
     replies = kb.write(packets, progress)
     seconds = time.monotonic() - t

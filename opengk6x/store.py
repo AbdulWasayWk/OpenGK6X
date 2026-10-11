@@ -102,6 +102,20 @@ class Store:
     def delete_effect(self, guid: str):
         (self.root / "effects" / f"{guid}.json").unlink(missing_ok=True)
 
+    # physical layout of the user's keyboard (layouts.py)
+    def layout(self, model: int) -> str:
+        from .layouts import default_layout
+        f = self.root / str(model) / "keyboard.json"
+        try:
+            return json.loads(f.read_text()).get("layout") or default_layout(model)
+        except (OSError, ValueError):
+            return default_layout(model)
+
+    def set_layout(self, model: int, name: str):
+        f = self.root / str(model) / "keyboard.json"
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps({"layout": name}, indent=1))
+
     # macros
     def _macros_file(self) -> Path:
         return self.root / "macros.json"
@@ -154,9 +168,12 @@ def to_official(profile: Profile, slot: str, default: dict, keymap: list[dict]) 
 
 
 def compile_packets(profile: Profile, slot: str, vendor, model: int, matrix: tuple[int, int],
-                    macros: dict[str, Macro]) -> list[bytes]:
+                    macros: dict[str, Macro], layout: str | None = None) -> list[bytes]:
     """The packets that write `profile` into `slot` (ends by switching the keyboard to it)."""
-    official = to_official(profile, slot, vendor.base_profile(model), vendor.keymap(model))
+    from .layouts import default_layout, spare_indexes
+    keymap, base = vendor.keymap(model), vendor.base_profile(model)
+    official = to_official(profile, slot, base, keymap)
+    spare = spare_indexes(keymap, base, layout or default_layout(model))
     has_lighting = bool(vendor.model_config(model).get("hasModeLe"))
 
     def load_macro(name):
@@ -164,7 +181,7 @@ def compile_packets(profile: Profile, slot: str, vendor, model: int, matrix: tup
             raise ValueError(f"macro {name!r} doesn't exist (see `opengk6x macro list`)")
         return to_actions(macros[name].steps)
 
-    data = pr.build(official, matrix, vendor.effect, load_macro, lighting=has_lighting)
+    data = pr.build(official, matrix, vendor.effect, load_macro, lighting=has_lighting, spare=spare)
     return pr.packets(data)
 
 

@@ -9,7 +9,8 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QMessageBox, QWidget
 
 from .. import device, session
 from ..store import CONFIG, SLOT_MODES, Profile, Store
-from ..vendordata import VendorData, VendorDataMissing, is_variant  # noqa: F401 (used by other GUI modules)
+from .. import layouts
+from ..vendordata import VendorData, VendorDataMissing
 
 SETTINGS = CONFIG / "gui.json"
 
@@ -175,6 +176,25 @@ class AppState(QObject):
             return session.status(self.store, self.vendor, self.model, slot, self.profiles[slot], self.matrix)
         except ValueError:
             return session.CHANGED                 # e.g. a macro it uses was deleted: needs attention anyway
+
+    # physical layout
+    @property
+    def layout(self) -> str:
+        return self.store.layout(self.model) if self.model is not None else "full"
+
+    def set_layout(self, name: str):
+        self.store.set_layout(self.model, name)
+        self.model_changed.emit()
+        self.profiles_changed.emit()          # Fn-only macros may move: the profiles' data changes
+
+    def display_keys(self) -> list[dict]:
+        return layouts.display_keys(self.keymap, self.layout)
+
+    def screen_area(self) -> dict | None:
+        return layouts.screen_area(self.keymap, self.layout)
+
+    def unsupported(self) -> frozenset:
+        return layouts.LAYOUTS.get(self.layout, layouts.LAYOUTS["full"]).unsupported
 
     def key(self, name: str) -> dict | None:
         return next((k for k in self.keymap if k["KeyName"] == name), None)

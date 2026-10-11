@@ -1,9 +1,10 @@
 """Keyboard page: connection, switching profiles, import/export, the keyboard's own shortcuts, settings."""
 from pathlib import Path
 
-from PySide6.QtWidgets import (QCheckBox, QFileDialog, QFormLayout, QGridLayout, QGroupBox, QLabel, QPushButton,
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFormLayout, QGridLayout, QGroupBox, QLabel, QPushButton,
                                QScrollArea, QVBoxLayout, QWidget)
 
+from .. import layouts
 from .. import protocol as p
 from .. import transfer
 from .common import AppState, confirm, error, hbox, heading, hint, info
@@ -96,13 +97,19 @@ class DevicePage(QWidget):
         v.addWidget(hbox(reset))
         lay.addWidget(box)
 
-        box = QGroupBox("Display")
+        box = QGroupBox("Physical layout")
         v = QVBoxLayout(box)
-        self.variants = QCheckBox("Show volume-knob and split-spacebar keys (keyboard variants with those parts)")
-        self.variants.setChecked(bool(state.settings.get("show_variants", False)))
-        self.variants.toggled.connect(self._variants)
-        v.addWidget(self.variants)
+        v.addWidget(hint("Which keys your keyboard really has (this keyboard model comes in several variants). "
+                         "It decides the keyboard picture, and where OpenGK6X can park macros that are only on "
+                         "the Fn layer (the firmware needs them on a key without a switch)."))
+        self.layout_combo = QComboBox()
+        for name, lay_ in layouts.LAYOUTS.items():
+            self.layout_combo.addItem(lay_.label, name)
+        self.layout_combo.currentIndexChanged.connect(self._layout_changed)
+        v.addWidget(hbox(self.layout_combo))
         lay.addWidget(box)
+        state.model_changed.connect(self._show_layout)
+        self._show_layout()
         lay.addStretch(1)
 
         state.keyboard.connected.connect(self._connected)
@@ -219,6 +226,13 @@ class DevicePage(QWidget):
                 prof.applied = None
         self.state.save_profiles()
 
-    def _variants(self, on: bool):
-        self.state.settings.set("show_variants", on)
-        self.state.model_changed.emit()
+    def _show_layout(self):
+        self.layout_combo.blockSignals(True)
+        self.layout_combo.setCurrentIndex(max(0, self.layout_combo.findData(self.state.layout)))
+        self.layout_combo.setEnabled(self.state.model is not None)
+        self.layout_combo.blockSignals(False)
+
+    def _layout_changed(self):
+        name = self.layout_combo.currentData()
+        if self.state.model is not None and name != self.state.layout:
+            self.state.set_layout(name)
