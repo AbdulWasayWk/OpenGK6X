@@ -7,7 +7,7 @@ knob sits where Print Screen / Scroll Lock / Pause are), and adds decorations (i
 import copy
 from dataclasses import dataclass, field
 
-from .vendordata import is_variant
+from .vendordata import variant_names
 
 
 @dataclass(frozen=True)
@@ -51,6 +51,7 @@ def display_keys(keymap: list[dict], name: str) -> list[dict]:
     """The keys to draw: copies of key-map entries, moved/relabelled for the layout; "Shape": "round" for knobs."""
     layout = LAYOUTS.get(name, LAYOUTS["full"])
     by_name = {k["KeyName"]: k for k in keymap}
+    variants = variant_names(keymap)
     out = []
     for k in keymap:
         place = layout.show.get(k["KeyName"])
@@ -62,7 +63,7 @@ def display_keys(keymap: list[dict], name: str) -> list[dict]:
             k["Show"] = place.label
             if place.round:
                 k["Shape"] = "round"
-        elif k["KeyName"] in layout.hide or (name != "all" and is_variant(k)):
+        elif k["KeyName"] in layout.hide or (name != "all" and k["KeyName"] in variants):
             continue
         out.append(k)
     return out

@@ -32,14 +32,20 @@ class Profile:
     keys: dict = field(default_factory=dict)       # key name → binding (text, or {"macro", "repeat", "count"})
     fn_keys: dict = field(default_factory=dict)
     applied: str | None = None                     # fingerprint of what OpenGK6X last wrote to this slot
+    # keyboards whose profiles have their own lighting (model config hasModeLe): {"effect": GUID | "" (off) |
+    # absent (the model's default), "key_effects": {key name: GUID}} (an effect played when that key is pressed)
+    lighting: dict = field(default_factory=dict)
 
     def to_json(self) -> dict:
-        return {"name": self.name, "keys": self.keys, "fn_keys": self.fn_keys, "applied": self.applied}
+        out = {"name": self.name, "keys": self.keys, "fn_keys": self.fn_keys, "applied": self.applied}
+        if self.lighting:
+            out["lighting"] = self.lighting
+        return out
 
     @classmethod
     def from_json(cls, data: dict) -> "Profile":
         return cls(data.get("name", ""), dict(data.get("keys", {})), dict(data.get("fn_keys", {})),
-                   data.get("applied"))
+                   data.get("applied"), dict(data.get("lighting", {})))
 
 
 def check_binding(binding) -> None:
@@ -164,11 +170,24 @@ def to_official(profile: Profile, slot: str, default: dict, keymap: list[dict]) 
     by_name = {k["KeyName"]: k for k in keymap}
     _apply(out.setdefault("KeySet", []), by_name, profile.keys, "keys")
     _apply(out.setdefault("FnKeySet", []), by_name, profile.fn_keys, "Fn keys")
+    light = profile.lighting or {}
+    if "effect" in light:
+        out["ModeLE"] = {"GUID": light["effect"] or "", "Name": ""}
+        out.pop("LEData", None)
+    if light.get("key_effects"):
+        entries = {int(e["Index"]): e for e in out["KeySet"]}
+        for key_name, guid in light["key_effects"].items():
+            key = by_name.get(key_name)
+            if key is None:
+                raise ValueError(f"key lighting: no key {key_name!r} on this keyboard")
+            entry = entries.get(key["LogicCode"])
+            if entry is not None:
+                entry["KeyLE"] = {"GUID": guid or "", "Name": ""}
     return out
 
 
 def compile_packets(profile: Profile, slot: str, vendor, model: int, matrix: tuple[int, int],
-                    macros: dict[str, Macro], layout: str | None = None) -> list[bytes]:
+                    macros: dict[str, Macro], layout: str | None = None, load_effect=None) -> list[bytes]:
     """The packets that write `profile` into `slot` (ends by switching the keyboard to it)."""
     from .layouts import default_layout, spare_indexes
     keymap, base = vendor.keymap(model), vendor.base_profile(model)
@@ -181,26 +200,39 @@ def compile_packets(profile: Profile, slot: str, vendor, model: int, matrix: tup
             raise ValueError(f"macro {name!r} doesn't exist (see `opengk6x macro list`)")
         return to_actions(macros[name].steps)
 
-    data = pr.build(official, matrix, vendor.effect, load_macro, lighting=has_lighting, spare=spare)
+    data = pr.build(official, matrix, load_effect or vendor.effect, load_macro, lighting=has_lighting, spare=spare)
     return pr.packets(data)
 
 
 def presets(vendor, model: int) -> dict[str, Profile]:
-    """Ready-made starting points besides the standard layout: the official app's Mac layout (its profile 2
-    default), as changes from the standard layout. Keys the picture doesn't have are left out."""
+    """Ready-made starting points besides the standard layout: the official app's profile 2 / 3 defaults where
+    they differ (on the GK104 Pro profile 2 is a Mac layout), as changes from the standard layout."""
     from .profile import js_parse_int
     from . import bindings as b
     names = {k["LogicCode"]: k["KeyName"] for k in vendor.keymap(model)}
     base = vendor.base_profile(model)
-    mac = vendor.default_profile(model, "2")
-    out = Profile(name="Mac")
-    for layer, ours in (("KeySet", out.keys), ("FnKeySet", out.fn_keys)):
-        before = {int(e["Index"]): js_parse_int(e.get("DriverValue"), 16) for e in base.get(layer) or []}
-        for e in mac.get(layer) or []:
-            v = js_parse_int(e.get("DriverValue"), 16)
-            if int(e["Index"]) in names and v is not None and v != before.get(int(e["Index"])):
-                ours[names[int(e["Index"])]] = b.name(v & 0xFFFFFFFF)
-    return {"Mac layout (the official app's profile 2 default)": out} if out.keys or out.fn_keys else {}
+    out = {}
+    for slot in ("2", "3"):
+        try:
+            other = vendor.default_profile(model, slot)
+        except (OSError, ValueError):
+            continue
+        prof = Profile()
+        for layer, ours in (("KeySet", prof.keys), ("FnKeySet", prof.fn_keys)):
+            before = {int(e["Index"]): js_parse_int(e.get("DriverValue"), 16) for e in base.get(layer) or []}
+            for e in other.get(layer) or []:
+                v = js_parse_int(e.get("DriverValue"), 16)
+                if int(e["Index"]) in names and v is not None and v != before.get(int(e["Index"])):
+                    ours[names[int(e["Index"])]] = b.name(v & 0xFFFFFFFF)
+        if not (prof.keys or prof.fn_keys):
+            continue
+        mac = prof.keys.get("Left Alt") == "lwin" and prof.keys.get("Left GUI") == "lalt"
+        prof.name = "Mac" if mac else f"Official {slot}"
+        title = ("Mac layout" if mac else f"the official app's profile {slot} default") + \
+            (f" (the official app's profile {slot} default)" if mac else "")
+        if all(p.keys != prof.keys or p.fn_keys != prof.fn_keys for p in out.values()):
+            out[title] = prof
+    return out
 
 
 def effect_loader(store: Store, vendor):

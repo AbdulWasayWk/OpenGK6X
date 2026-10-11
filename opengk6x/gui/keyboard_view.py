@@ -93,10 +93,13 @@ class KeyboardView(QWidget):
         self._screen_rect = QRectF(ox + p["Left"] * s, oy + p["Top"] * s, p["Width"] * s, p["Height"] * s
                                    ).adjusted(3 * s, 3 * s, -3 * s, -3 * s) if p else None
 
+    max_height = 440          # tall keyboards (numpads) get narrower instead of taking the whole window
+
     def _fit_height(self):
-        """Keep the keyboard's shape: as tall as the width needs (the page gives the rest to other widgets)."""
+        """Keep the keyboard's shape: as tall as the width needs, up to max_height (the page gives the rest to
+        other widgets)."""
         if self._keys and self.width() > 0:
-            want = self.heightForWidth(self.width())
+            want = min(self.heightForWidth(self.width()), self.max_height)
             if want != self.minimumHeight() or want != self.maximumHeight():
                 self.setFixedHeight(want)
 

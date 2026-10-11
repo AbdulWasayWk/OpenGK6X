@@ -204,6 +204,27 @@ class AppState(QObject):
     def unsupported(self) -> frozenset:
         return layouts.LAYOUTS.get(self.layout, layouts.LAYOUTS["full"]).unsupported
 
+    # what this keyboard model has (its config.json)
+    @property
+    def has_fn_layer(self) -> bool:
+        return self.config.get("IsFnKeySet", True) is not False
+
+    @property
+    def has_profile_lighting(self) -> bool:
+        return bool(self.config.get("hasModeLe"))
+
+    @property
+    def has_online_mode(self) -> bool:
+        return self.config.get("hasOnlineMode", True) is not False
+
+    def effect_names(self) -> list[tuple[str, str]]:
+        """(GUID, name) of the user's effects, then the library's, for pickers."""
+        mine = [(g, f"Mine: {e.get('Name') or g}") for g, e in
+                sorted(self.store.effects().items(), key=lambda kv: kv[1].get("Name", "").lower())]
+        lib = [(e["GUID"], e["Name"]) for e in self.vendor.effect_library(self.model)] \
+            if self.vendor and self.model is not None else []
+        return mine + lib
+
     def key(self, name: str) -> dict | None:
         return next((k for k in self.keymap if k["KeyName"] == name), None)
 

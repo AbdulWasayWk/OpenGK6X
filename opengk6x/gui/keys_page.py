@@ -1,7 +1,7 @@
 """Keys page: offline profiles 1-3, the keyboard picture, and changing what each key does."""
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QButtonGroup, QFrame, QHBoxLayout, QInputDialog, QLabel, QMenu, QPushButton,
-                               QStackedWidget, QTabBar, QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QButtonGroup, QComboBox, QFrame, QHBoxLayout, QInputDialog, QLabel, QMenu,
+                               QPushButton, QStackedWidget, QTabBar, QToolButton, QVBoxLayout, QWidget)
 
 from .. import bindings as b
 from .. import session
@@ -107,6 +107,11 @@ class KeysPage(QWidget):
         il.addWidget(self.key_title)
         il.addWidget(self.key_current)
         il.addWidget(self.key_default)
+        self.press_label = QLabel("When pressed, light up with:")
+        self.press_effect = QComboBox()
+        self.press_effect.currentIndexChanged.connect(self._press_effect_changed)
+        il.addWidget(self.press_label)
+        il.addWidget(self.press_effect)
         il.addStretch(1)
         il.addWidget(self.reset_key)
         el.addWidget(info)
@@ -135,6 +140,15 @@ class KeysPage(QWidget):
     # --- display ---------------------------------------------------------------------------------
     def _model_changed(self):
         self.view.set_keys(self.state.display_keys(), self.state.screen_area())
+        self.layer_buttons.button(1).setVisible(self.state.has_fn_layer)
+        if not self.state.has_fn_layer and self.fn:
+            self.layer_buttons.button(0).click()
+        self.press_effect.blockSignals(True)
+        self.press_effect.clear()
+        self.press_effect.addItem("Nothing", None)
+        for guid, name in self.state.effect_names():
+            self.press_effect.addItem(name, guid)
+        self.press_effect.blockSignals(False)
         self.picker.set_hidden_categories(self.state.unsupported())
         while self.preset_row.count():
             item = self.preset_row.takeAt(0)
@@ -222,6 +236,9 @@ class KeysPage(QWidget):
         prof = self._profile()
         name = self.selected
         self.view.set_selected(name)
+        if name is None or prof is None or name == "Fn":
+            self.press_label.setVisible(False)
+            self.press_effect.setVisible(False)
         if name is None or prof is None:
             self.key_title.setText("No key selected")
             self.key_current.setText("Click a key on the keyboard above.")
@@ -250,6 +267,14 @@ class KeysPage(QWidget):
         self.key_default.setText(f"Default: {default_text}")
         self.reset_key.setEnabled(name in layer)
         self.picker.setEnabled(True)
+        show_press = self.state.has_profile_lighting and not self.fn
+        self.press_label.setVisible(show_press)
+        self.press_effect.setVisible(show_press)
+        if show_press:
+            guid = (prof.lighting.get("key_effects") or {}).get(name)
+            self.press_effect.blockSignals(True)
+            self.press_effect.setCurrentIndex(max(0, self.press_effect.findData(guid)))
+            self.press_effect.blockSignals(False)
 
     # --- events ----------------------------------------------------------------------------------
     def _tab_changed(self, i):
@@ -274,6 +299,18 @@ class KeysPage(QWidget):
             layer.pop(self.selected, None)              # same as the default: no change to keep
         else:
             layer[self.selected] = binding
+        self.state.save_profiles()
+
+    def _press_effect_changed(self):
+        prof = self._profile()
+        if prof is None or not self.selected or self.fn:
+            return
+        effects = prof.lighting.setdefault("key_effects", {})
+        guid = self.press_effect.currentData()
+        if guid:
+            effects[self.selected] = guid
+        else:
+            effects.pop(self.selected, None)
         self.state.save_profiles()
 
     def _reset_key(self):

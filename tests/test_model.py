@@ -119,5 +119,26 @@ class TestStore(unittest.TestCase):
             to_official(Profile("P", {"Nope": "a"}), "1", DEFAULT, KEYMAP)
 
 
+class TestModels(unittest.TestCase):
+    def test_variant_names(self):
+        from opengk6x.vendordata import variant_names
+        keymap = [{"KeyName": n} for n in ("Escape", "Escape VOLU", "Tab", "Tab +", "Tab -", "Page Down",
+                                            "Page Down mute", "Delete", "Delete mute **", "F11", "F11VolUp",
+                                            "Keypad -", "Keypad +", "Mute", "Left Space", "Space")]
+        self.assertEqual(variant_names(keymap), {"Escape VOLU", "Tab +", "Tab -", "Page Down mute",
+                                                 "Delete mute **", "F11VolUp", "Left Space"})
+
+    def test_profile_lighting_to_official(self):
+        prof = Profile("P", {"App": "q"}, lighting={"effect": "E1", "key_effects": {"App": "E2"}})
+        out = to_official(prof, "1", DEFAULT, KEYMAP)
+        self.assertEqual(out["ModeLE"], {"GUID": "E1", "Name": ""})
+        self.assertEqual(next(e for e in out["KeySet"] if e["Index"] == 1)["KeyLE"], {"GUID": "E2", "Name": ""})
+        off = to_official(Profile("P", lighting={"effect": ""}), "1", DEFAULT, KEYMAP)
+        self.assertEqual(off["ModeLE"]["GUID"], "")
+        untouched = to_official(Profile("P"), "1", DEFAULT, KEYMAP)
+        self.assertEqual(untouched["ModeLE"], DEFAULT["ModeLE"])
+        self.assertEqual(Profile.from_json(prof.to_json()), prof)
+
+
 if __name__ == "__main__":
     unittest.main()

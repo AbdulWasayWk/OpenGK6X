@@ -3,8 +3,9 @@ import json
 from pathlib import Path
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QFileDialog, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem,
-                               QPushButton, QSlider, QSplitter, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QComboBox, QFileDialog, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget,
+                               QListWidgetItem, QPushButton, QSlider, QSplitter, QTreeWidget, QTreeWidgetItem,
+                               QVBoxLayout, QWidget)
 
 from .. import cmf, session
 from .. import effects as fx
@@ -118,12 +119,27 @@ class LightingPage(QWidget):
         arow.addWidget(self.apply)
         bl.addLayout(arow)
         rl.addWidget(box)
+
+        # keyboards whose profiles have their own lighting
+        self.profile_box = QGroupBox("Lighting of profiles 1–3 (apply them on the Keys page)")
+        pl = QHBoxLayout(self.profile_box)
+        self.profile_effects = {}
+        for slot in ("1", "2", "3"):
+            col = QVBoxLayout()
+            col.addWidget(QLabel(f"Profile {slot}"))
+            combo = QComboBox()
+            combo.currentIndexChanged.connect(lambda _i, s=slot: self._profile_effect_changed(s))
+            col.addWidget(combo)
+            self.profile_effects[slot] = combo
+            pl.addLayout(col)
+        rl.addWidget(self.profile_box)
         split.addWidget(right)
         split.setSizes([300, 900])
 
         self._previewing = None
         state.model_changed.connect(self._model_changed)
         state.keyboard.connected.connect(lambda _i: self._update_status())
+        state.profiles_changed.connect(self._fill_profile_effects)
         self._model_changed()
 
     # --- data ------------------------------------------------------------------------------------
@@ -160,6 +176,37 @@ class LightingPage(QWidget):
             self.custom = list(self.state.store.lighting(self.state.model)["custom"])
         self._fill_tree()
         self._fill_list()
+        self._fill_profile_effects()
+
+    def _fill_profile_effects(self):
+        self.profile_box.setVisible(self.state.has_profile_lighting)
+        if not self.state.has_profile_lighting:
+            return
+        names = self.state.effect_names()
+        for slot, combo in self.profile_effects.items():
+            prof = self.state.profiles.get(slot)
+            combo.blockSignals(True)
+            combo.clear()
+            combo.addItem("The model's default", "__default__")
+            combo.addItem("Off", "")
+            for guid, name in names:
+                combo.addItem(name, guid)
+            light = prof.lighting if prof else {}
+            combo.setCurrentIndex(max(0, combo.findData(light.get("effect", "__default__"))))
+            combo.setEnabled(prof is not None)
+            combo.setToolTip("" if prof else f"Set up profile {slot} on the Keys page first")
+            combo.blockSignals(False)
+
+    def _profile_effect_changed(self, slot: str):
+        prof = self.state.profiles.get(slot)
+        if prof is None:
+            return
+        value = self.profile_effects[slot].currentData()
+        if value == "__default__":
+            prof.lighting.pop("effect", None)
+        else:
+            prof.lighting["effect"] = value
+        self.state.save_profiles()
 
     def _fill_tree(self, select: str | None = None):
         self.tree.clear()

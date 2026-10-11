@@ -36,6 +36,18 @@ always the first macro), and writing a profile **keeps the lighting effect you p
 
 ![Lighting page](docs/screenshots/lighting.png)
 
+## Supported keyboards
+
+OpenGK6X reads each keyboard model's layout, defaults and features from the official app's data, so it works with
+the keyboards the official GK6X app supports (Skyloong / Epomaker GK6X family: GK61, GK64, GK68, GK75, GK84, GK87,
+GK96, GK980, SK21, SK61, SK87, SK96, GK104 Pro and more, 275 models in GK6X 8.0.7), connected with the USB cable
+(USB ID `1ea7:0907`). It adapts to each model: profiles with their own lighting where the keyboard has them,
+no Fn layer or live mode where the model has none.
+
+It's been tested on the **GK104 Pro**. On other models the basics come from the same official data and code paths,
+but hardware variants (knobs, screens, split spacebars: Keyboard page → *Physical layout*) and firmware quirks may
+differ. Reports and fixes are welcome.
+
 ## Install (Arch Linux)
 
 1. **Dependencies:** `sudo pacman -S python-hidapi pyside6 7zip`

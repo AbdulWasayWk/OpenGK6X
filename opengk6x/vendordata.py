@@ -16,12 +16,23 @@ SEARCH = [
 ]
 
 
-VARIANT_WORDS = ("VOL", "MUTE", "Vol", "Mute", "Left Space", "Right Space")
+VARIANT_SUFFIXES = {"mute", "up", "down", "-", "+", "volu", "vold", "volup", "voldown"}
+SPLIT_SPACE = {"Left Space", "Right Space"}
 
 
-def is_variant(key: dict) -> bool:
-    """Key-map entries for hardware variants (volume knob positions, split spacebar), not on every keyboard."""
-    return any(w in key["KeyName"] for w in VARIANT_WORDS)
+def variant_names(keymap: list[dict]) -> set[str]:
+    """Key-map entries for hardware variants, not on every keyboard of the model: knob positions, named after the
+    key they replace plus Mute / Up / Down / - / + / VOLU / VOLD / VolUp / VolDown ("Escape VOLU", "Tab +",
+    "Page Down mute"), and the split spacebar halves. (Checked against all 275 official models.)"""
+    names = {k["KeyName"] for k in keymap}
+    out = set(names & SPLIT_SPACE)
+    for n in names:
+        for other in names:
+            if other != n and n.startswith(other) and \
+                    n[len(other):].strip().rstrip("*").strip().lower() in VARIANT_SUFFIXES:
+                out.add(n)
+                break
+    return out
 
 
 class VendorDataMissing(Exception):

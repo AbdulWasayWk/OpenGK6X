@@ -6,7 +6,7 @@ from pathlib import Path
 
 from . import device
 from . import protocol as p
-from .store import Profile, Store, compile_custom, compile_packets, fingerprint
+from .store import Profile, Store, compile_custom, compile_packets, effect_loader, fingerprint
 from .vendordata import VendorData
 
 STATE = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "opengk6x"
@@ -58,7 +58,8 @@ def status(store: Store, vendor: VendorData, model: int, slot: str, prof: Profil
         return UNKNOWN
     if prof.applied is None:
         return NOT_WRITTEN
-    current = fingerprint(compile_packets(prof, slot, vendor, model, matrix, store.macros(), store.layout(model)))
+    current = fingerprint(compile_packets(prof, slot, vendor, model, matrix, store.macros(), store.layout(model),
+                                          effect_loader(store, vendor)))
     return APPLIED if current == prof.applied else CHANGED
 
 
@@ -93,7 +94,8 @@ def write_profile(kb: device.Keyboard, store: Store, vendor: VendorData, model: 
     if kb.model_id() != model:
         raise device.DeviceError("a different keyboard model is connected")
     prof = profiles[slot]
-    packets = compile_packets(prof, slot, vendor, model, kb.matrix(), store.macros(), store.layout(model))
+    packets = compile_packets(prof, slot, vendor, model, kb.matrix(), store.macros(), store.layout(model),
+                              effect_loader(store, vendor))
     t = time.monotonic()
     replies = kb.write(packets, progress)
     seconds = time.monotonic() - t

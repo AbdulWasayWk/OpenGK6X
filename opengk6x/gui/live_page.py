@@ -443,6 +443,11 @@ class LivePage(QWidget):
             self.live.restart()
 
     def _show_state(self):
+        if self.state.model is not None and not self.state.has_online_mode:
+            self.toggle.setText("Start live mode")
+            self.toggle.setEnabled(False)
+            self.status.setText("This keyboard model has no online mode, so live mode isn't available.")
+            return
         on = self.live.running
         self.toggle.setText("Stop live mode" if on else "Start live mode")
         self.toggle.setEnabled(on or self.state.keyboard.info is not None)

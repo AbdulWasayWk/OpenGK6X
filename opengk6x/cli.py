@@ -9,7 +9,7 @@ from . import protocol as p
 from . import session, transfer
 from .macros import REPEAT_MODES, Macro, parse_text, to_text
 from .store import SLOT_MODES, Profile, Store, check_binding, compile_packets
-from .vendordata import VendorData, VendorDataMissing, is_variant
+from .vendordata import VendorData, VendorDataMissing, variant_names
 
 MODES = {"standard": p.MODE_STANDARD, **SLOT_MODES}
 
@@ -34,7 +34,8 @@ def key_name(keymap: list[dict], text: str) -> str:
         hits = [k for k in keymap if k["LogicCode"] == int(t[1:])]
     else:
         hits = [k for k in keymap if k["KeyName"].lower() == t] or \
-               sorted((k for k in keymap if k.get("Show", "").lower() == t), key=is_variant)
+               sorted((k for k in keymap if k.get("Show", "").lower() == t),
+                      key=lambda k: k["KeyName"] in variant_names(keymap))
     if not hits:
         raise ValueError(f"no key {text!r} on this keyboard (see `opengk6x keys`)")
     return hits[0]["KeyName"]
