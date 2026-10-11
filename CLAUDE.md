@@ -74,11 +74,11 @@ From GK6+ 8.0.7 (`config.json` FuncTable: Configure keyboard, LE library, Macro 
 
 | App area | Features | Status |
 |---|---|---|
-| Device | detect (VER/DEVICE_ID/MODEL_ID), firmware version, picture of the keyboard (`img/device_*.png`, `keymap.js` positions) | [~] `info` |
-| Profiles | standard (effects list only) + offline profiles 1–3 stored in the keyboard; switch with `0B` or Fn keys; online (PC-driven) profiles; profile import/export (`.cmf`) | [ ] |
-| Key mapping | per key and per Fn key: any key + modifiers, combos (Ctrl+C…), disable, mouse buttons, media keys, lighting controls, profile switching, Space dual-role (hold = modifier), sleep, macros; online-only: open app/URL/file | [ ] |
-| Lighting | effect library (183 `.le`, 6 shown to all models + category 840 for ours), main effect per profile, per-key press lighting, per-key static colors, effect editor (frames + color logic: static / cycle / breathing), standard-mode effect list (Fn+−/+) | [ ] |
-| Macros | library (148 presets), recorder/editor (key/mouse down-up, delays), repeat count, stop mode, assign to keys | [ ] |
+| Device | detect (VER/DEVICE_ID/MODEL_ID), firmware version, picture of the keyboard (`keymap.js` positions) | [x] CLI `info`, GUI Keyboard page; keyboard picture drawn by us |
+| Profiles | standard (effects list only) + offline profiles 1–3 stored in the keyboard; switch with `0B` or Fn keys; online (PC-driven) profiles; profile import/export (`.cmf`, `.gpr`) | [x] offline 1–3 (CLI + GUI), switching, import/export; [ ] online profiles |
+| Key mapping | per key and per Fn key: any key + modifiers, combos (Ctrl+C…), disable, mouse buttons, media keys, lighting controls, profile switching, Space dual-role (hold = modifier), sleep, macros; online-only: open app/URL/file | [x] all offline actions (`bindings.py`, 199 + combos); [ ] online-only app/URL |
+| Lighting | effect library (183 `.le`, 6 shown to all models + category 840 for ours), main effect per profile, per-key press lighting, per-key static colors, effect editor (frames + color logic: static / cycle / breathing), standard-mode effect list (Fn+−/+) | [~] model facts + GUI explanation; on this model profiles have no lighting (`hasModeLe` false); [ ] standard-mode custom effects list + editor + preview |
+| Macros | library (148 presets), recorder/editor (key/mouse down-up, delays), repeat count, stop mode, assign to keys | [x] CLI + GUI (recorder, step editor, text form, .cms import/export); hardware playback not yet verified |
 | Online mode | live per-key lighting effects rendered by the PC, macros/app launch on key press, game profiles (`Game`, `Application`) | [ ] (decide if wanted) |
 | Firmware update | (none in 8.0.7: `firmware.js` is empty) | N/A |
 
@@ -109,7 +109,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Project skeleton, git, udev rule (installed 2026-10-11; dongle if3 only), capture tooling, prior art cloned
 - [x] Read-only handshake from Linux works: `python3 -m opengk6x info` (model 656802056, fw `0x84223311`)
 
-### Phase 1: Reverse engineering
+### Phase 1: Reverse engineering ✅ (2026-10-11)
 - [x] Official app EXE from the user (GK6+ 8.0.1) unpacked: Electron, plain JS, `node-hid`
 - [x] 8.0.7 (from Epomaker, via the user) supports model 656802056; unpacked; model data + library decoded
 - [x] Protocol from code: command table, profiles/modes, offline profile write sequence, key/Fn tables + driver
@@ -125,13 +125,15 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
       code via `tools/re/golden_profile.js`). CLI `keys`, `mode`, `profile write SLOT [--set KEY=BINDING]`
 - [x] **First hardware write (2026-10-11): profile 1 = default + App→Q.** User confirmed Menu types q; switched back
       to standard with `opengk6x mode standard`. Lighting in profiles: see findings
-- [ ] Layers + keymaps (with a safe test plan, see conventions), Fn layer
-- [ ] Lighting: built-in modes, per-key static, press lighting, direct mode
-- [ ] Macros
-- [ ] Whatever else the catalog lists (profiles, polling rate, Win-lock, reset, …)
+- [x] Bindings catalog, profile store (changes from the standard layout), macros, import/export (official + backup)
+- [ ] Verify on hardware: Fn-layer key, macro playback (incl. Fn-layer macro slots), Space dual-role, profile_N keys
+- [ ] Lighting: standard-mode custom effects list (Fn+−), effect editor + preview, online direct mode
 
 ### Phase 3: App
-- [ ] CLI, then a PySide6 GUI with a picture of the keyboard; packaging (PKGBUILD, desktop file)
+- [x] CLI (`info keys actions mode bind unbind profile macro export import setup-data`)
+- [x] GUI `python3 -m opengk6x.gui` (Keys, Macros, Lighting info, Keyboard pages); offscreen screenshots checked;
+      launched on the user's desktop 2026-10-11 for a first look
+- [ ] Packaging (PKGBUILD, desktop file, install script), README
 
 ## Open questions
 - Does the keyboard check the packet CRC? (OpenRGB sends a different one and works.)
