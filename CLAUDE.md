@@ -49,8 +49,8 @@ RGB controller. Reuse its structure, conventions and tooling; this project follo
   ⚠ Passing the keyboard through to the VM takes it away from the host while attached (the mouse stays). The
   host still sees the traffic: `tools/setup-dev.sh usbmon` (once per boot, sudo), then
   `tools/capture.sh <name> [secs] [wired|dongle]` → `captures/<name>.pcapng`.
-- Git: local repo, branch `master`, GPL-3.0-or-later (compatible with pixeltris MIT and OpenRGB GPL-2.0+).
-  No remote yet; push only when the user asks.
+- Git: public repo **github.com/AbdulWasayWk/OpenGK6X** (`origin`, SSH; branch `master`), GPL-3.0-or-later
+  (compatible with pixeltris MIT and OpenRGB GPL-2.0+). The user asked to push; keep pushing finished work.
 
 ## Prior art (in `reference/`, gitignored)
 
@@ -113,8 +113,10 @@ The app is **done** when every item below is checked. Keep this list current.
       backups; CLI for everything
 - [x] Safety: standard keys never written; confirmation before replacing unknown keyboard data (profiles,
       custom effects); live mode always switches back (Ctrl+C / terminal close / quit / disconnect)
-- [x] Packaging: install-user.sh (installed), PKGBUILD (makepkg builds + tests), desktop entry, icon, udev rule
-      (installed), README with screenshots
+- [x] Packaging like OpenNollie: README install-from-scratch (package / user), updating, uninstall;
+      install-user.sh (checks deps, optional official zip → setup-data, udev hint, --remove incl. live autostart;
+      installed for the user); PKGBUILD verified from a fresh GitHub clone (46 tests, package contents);
+      udev rule installed; GitHub: github.com/AbdulWasayWk/OpenGK6X (pushed)
 - [x] Wireless: profiles 1–3 aren't used over 2.4 GHz; **the Standard profile is** and its keys are now editable
       (keys only: macros/Fn layer refused). Custom effects carry over. Configuration needs the cable.
 
