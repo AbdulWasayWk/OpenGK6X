@@ -168,11 +168,25 @@ class TestModels(unittest.TestCase):
         self.assertEqual(untouched["ModeLE"], DEFAULT["ModeLE"])
         self.assertEqual(Profile.from_json(prof.to_json()), prof)
 
-    def test_knob(self):
+    def test_knobs(self):
         from opengk6x import layouts
-        self.assertEqual(set(layouts.knob_keys("gk104pro")), set(layouts.KNOB_ROLES))
-        self.assertEqual(layouts.knob_keys("full"), {})
-        values = [b.parse(v) for v, _ in layouts.KNOB_ACTIONS]      # every choice is a known action, once
+        pos = {"Width": 21, "Height": 21}
+        keymap = [{"KeyName": "Escape", "Position": {"Left": 0, "Top": 40, "Width": 42, "Height": 42}},
+                  {"KeyName": "Escape VOLD", "Position": {"Left": 21, "Top": 0, **pos}},
+                  {"KeyName": "Escape VOLU", "Position": {"Left": 0, "Top": 0, **pos}},
+                  {"KeyName": "Escape MUTE", "Position": {"Left": 0, "Top": 21, "Width": 42, "Height": 21}},
+                  {"KeyName": "F12", "Position": {"Left": 50, "Top": 40, "Width": 42, "Height": 42}},
+                  {"KeyName": "F12 Mute", "Position": {"Left": 50, "Top": 21, "Width": 42, "Height": 21}}]
+        # turn left = the left one (the GK104 Pro's tested knob: VOLU left = turn left); a mute alone isn't a knob
+        self.assertEqual(layouts.find_knobs(keymap), [layouts.Knob("Knob (Escape)", "Escape VOLU", "Escape VOLD",
+                                                                   "Escape MUTE")])
+        shown = {k["KeyName"]: k for k in layouts.display_keys(keymap, "all")}
+        self.assertEqual(shown["Escape VOLD"]["KnobRole"], "right")
+        self.assertEqual(shown["Escape VOLD"]["Position"], {"Left": 0, "Top": 0, "Width": 42, "Height": 42})
+        self.assertNotIn("Shape", shown["F12 Mute"])
+        self.assertEqual(layouts.knobs(keymap, "full"), [])
+        self.assertEqual(layouts.knobs(keymap, "gk104pro"), [])        # its knob's keys aren't in this key map
+        values = [b.parse(v) for v, _ in layouts.KNOB_ACTIONS]      # every suggestion is a known action, once
         self.assertEqual(len(values), len(set(values)))
 
 

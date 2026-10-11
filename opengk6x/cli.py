@@ -31,14 +31,13 @@ def key_name(keymap: list[dict], text: str) -> str:
     split-spacebar variants), case-insensitive; "#N" = matrix index N."""
     t = text.strip().lower()
     from .layouts import LAYOUTS
-    role = {"knob-left": "left", "knob-right": "right", "knob-press": "press"}.get(t.replace("_", "-").replace(" ", "-"))
-    for layout in LAYOUTS.values():                     # knob-left / knob-right / knob-press
-        if role and layout.knob.get(role) and any(k["KeyName"] == layout.knob[role] for k in keymap):
-            return layout.knob[role]
-    for layout in LAYOUTS.values():                     # knob names as shown in the app ("Knob ⟳")
-        for name, place in layout.show.items():
-            if place.label.lower() == t and any(k["KeyName"] == name for k in keymap):
-                return name
+    words = t.replace("_", " ").replace("-", " ").split()
+    role = {("knob", "left"): "left", ("knob", "turn", "left"): "left", ("knob", "right"): "right",
+            ("knob", "turn", "right"): "right", ("knob", "press"): "press"}.get(tuple(words))
+    for layout in LAYOUTS.values():                     # knob-left / knob-right / knob-press ("knob turn left")
+        for knob in layout.knobs if role else ():
+            if any(k["KeyName"] == knob.parts()[role] for k in keymap):
+                return knob.parts()[role]
     if t.startswith("#") and t[1:].isdigit():
         hits = [k for k in keymap if k["LogicCode"] == int(t[1:])]
     else:

@@ -84,6 +84,8 @@ class BindingPicker(QWidget):
     def __init__(self, state: AppState, parent=None):
         super().__init__(parent)
         self.state = state
+        self._hidden: set[str] = set()
+        self._suggest: tuple[str, tuple] | None = None
         outer = QHBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         lay = QVBoxLayout()
@@ -165,11 +167,29 @@ class BindingPicker(QWidget):
         self._hidden = set(hidden)
         self.rebuild()
 
+    def set_suggestions(self, title: str | None, actions=()):
+        """An extra group at the top of the list, e.g. what knobs are usually set to; None for none."""
+        new = (title, tuple(actions)) if title else None
+        if new != self._suggest:
+            self._suggest = new
+            self.rebuild()
+
+    def set_target(self, text: str):
+        """What the assign button assigns to ("key", "turn left", …)."""
+        self.assign.setText(f"Assign to {text}")
+
     def rebuild(self):
         self.tree.clear()
         groups: dict[str, QTreeWidgetItem] = {}
-        hidden = getattr(self, "_hidden", set())
-        for cat in [c for c in CATEGORY_ORDER + ["Macros"] if c not in hidden]:
+        if self._suggest:
+            top = QTreeWidgetItem(self.tree, [self._suggest[0]])
+            top.setFlags(Qt.ItemIsEnabled)
+            for name, label in self._suggest[1]:
+                item = QTreeWidgetItem(top, [label])
+                item.setData(0, Qt.UserRole, name)
+                item.setToolTip(0, f"{label}  [{name}]")
+            top.setExpanded(True)
+        for cat in [c for c in CATEGORY_ORDER + ["Macros"] if c not in self._hidden]:
             groups[cat] = QTreeWidgetItem(self.tree, [cat])
             groups[cat].setFlags(Qt.ItemIsEnabled)
         for a in b.catalog():
@@ -184,7 +204,7 @@ class BindingPicker(QWidget):
         if not self.state.macros and "Macros" in groups:
             item = QTreeWidgetItem(groups["Macros"], ["(no macros yet: make one on the Macros page)"])
             item.setFlags(Qt.ItemIsEnabled)
-        groups["Basic"].setExpanded(True)
+        groups["Basic"].setExpanded(not self._suggest)
         self._filter(self.search.text())
 
     def _filter(self, text: str):

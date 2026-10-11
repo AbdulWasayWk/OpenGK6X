@@ -61,7 +61,7 @@ class Renderer:
     """Lighting frames for live mode: an effect underneath, typing effects on top."""
 
     def __init__(self, keys: list[dict], effect: dict | None, config: LiveConfig):
-        self.keys = [k for k in keys if 0 <= k["LocationCode"] < p.LIVE_LEDS and k.get("Shape") != "round"]
+        self.keys = [k for k in keys if 0 <= k["LocationCode"] < p.LIVE_LEDS and k.get("Shape") != "knob"]
         self.led_of = {k["LogicCode"]: k["LocationCode"] for k in self.keys}
         self.center = {k["LocationCode"]: (k["Position"]["Left"] + k["Position"]["Width"] / 2,
                                            k["Position"]["Top"] + k["Position"]["Height"] / 2) for k in self.keys}

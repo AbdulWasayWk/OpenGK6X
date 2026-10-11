@@ -11,8 +11,7 @@ from .binding_picker import BindingPicker
 from .common import AppState, confirm, error, heading, hint
 from .keyboard_view import KeyboardView, KeyLook
 
-KNOB_HELP = {"left": "What turning the knob to the left does", "right": "What turning the knob to the right does",
-             "press": "What pressing the knob does"}
+KNOB_ICONS = {"left": "⟲", "press": "●", "right": "⟳"}
 
 STATUS_STYLE = {session.APPLIED: ("●", "#2e9d4f"), session.CHANGED: ("●", "#d08a1a"),
                 session.NOT_WRITTEN: ("●", "#d08a1a"), session.UNKNOWN: ("○", "palette(placeholder-text)")}
@@ -88,24 +87,6 @@ class KeysPage(QWidget):
         layer_row.addWidget(hint("Click a key to change what it does. Highlighted keys differ from the default."), 1)
         lay.addLayout(layer_row)
 
-        # the knob's three actions, for keyboards that have one
-        self.knob_box = QWidget()
-        kl = QHBoxLayout(self.knob_box)
-        kl.setContentsMargins(0, 0, 0, 0)
-        self.knob_title = QLabel()
-        kl.addWidget(self.knob_title)
-        self.knob_combos: dict[str, QComboBox] = {}
-        for role, text in layouts.KNOB_ROLES.items():
-            kl.addSpacing(12)
-            kl.addWidget(QLabel(text))
-            combo = QComboBox()
-            combo.setMinimumWidth(190)
-            combo.activated.connect(lambda _i, r=role: self._knob_chosen(r))
-            kl.addWidget(combo)
-            self.knob_combos[role] = combo
-        kl.addStretch(1)
-        lay.addWidget(self.knob_box)
-
         self.view = KeyboardView()
         self.view.key_clicked.connect(self._select)
         lay.addWidget(self.view)
@@ -130,6 +111,21 @@ class KeysPage(QWidget):
         self.reset_key.clicked.connect(self._reset_key)
         il.addWidget(self.key_title)
         il.addWidget(self.key_current)
+        # a knob: its three actions; the one picked here is what the list on the right changes
+        self.knob_panel = QWidget()
+        kp = QVBoxLayout(self.knob_panel)
+        kp.setContentsMargins(0, 0, 0, 0)
+        self.knob_buttons = QButtonGroup(self)
+        for role in ("left", "right", "press"):
+            btn = QPushButton()
+            btn.setCheckable(True)
+            btn.setStyleSheet("QPushButton { text-align: left; padding: 6px 10px; } QPushButton:checked { "
+                              "border: 2px solid palette(highlight); border-radius: 4px; }")
+            btn.clicked.connect(lambda _=False, r=role: self._knob_part(r))
+            self.knob_buttons.addButton(btn)
+            kp.addWidget(btn)
+            setattr(self, f"knob_{role}", btn)
+        il.addWidget(self.knob_panel)
         il.addWidget(self.key_default)
         self.press_label = QLabel("When pressed, light up with:")
         self.press_effect = QComboBox()
@@ -247,7 +243,6 @@ class KeysPage(QWidget):
         else:
             self.lower.setCurrentIndex(0)
         self._update_keys()
-        self._fill_knob()
         self._update_editor()
 
     def _update_keys(self):
@@ -257,10 +252,17 @@ class KeysPage(QWidget):
         for k in self.state.display_keys():
             name = k["KeyName"]
             show = k.get("Show") or name
-            if k.get("Shape") == "round" and name not in layer:
-                default = self.state.default_binding(self.slot, name, self.fn)
-                looks[name] = KeyLook(show, False, f"{show}: {b.label(default) if default is not None else '—'}"
-                                                   " (default)")
+            if k.get("Shape") == "knob":
+                where = f"{'Fn + ' if self.fn else ''}{k['Knob']} · {layouts.KNOB_ROLES[k['KnobRole']].lower()}"
+                if name in layer:
+                    binding = layer[name]
+                    text = f"⏵ {binding['macro']}" if isinstance(binding, dict) else b.cap_label(b.parse(binding))
+                    looks[name] = KeyLook(text, True, f"{where}: {describe(binding)}")
+                else:
+                    default = self.state.default_binding(self.slot, name, self.fn)
+                    looks[name] = KeyLook(b.cap_label(default) if default is not None else "—", False,
+                                          f"{where}: {b.label(default) if default is not None else 'nothing'} "
+                                          "(default)")
                 continue
             if name in layer:
                 binding = layer[name]
@@ -278,11 +280,25 @@ class KeysPage(QWidget):
                 looks[name] = KeyLook(text, False, f"{name}: default")
         self.view.set_looks(looks)
 
+    def _knob(self, name: str | None) -> dict | None:
+        """The knob `name` belongs to: {"name", "role", "parts": {role: key name}}, or None for a key."""
+        keys = [k for k in self.state.display_keys() if k.get("Shape") == "knob"]
+        hit = next((k for k in keys if k["KeyName"] == name), None)
+        if hit is None:
+            return None
+        return {"name": hit["Knob"], "role": hit["KnobRole"],
+                "parts": {k["KnobRole"]: k["KeyName"] for k in keys if k["Knob"] == hit["Knob"]}}
+
     def _update_editor(self):
         prof = self._profile()
         name = self.selected
         self.view.set_selected(name)
-        if name is None or prof is None or name == "Fn":
+        knob = self._knob(name) if prof is not None else None
+        self.knob_panel.setVisible(knob is not None)
+        role = layouts.KNOB_ROLES[knob["role"]].lower() if knob else ""
+        self.picker.set_suggestions("Suggested for knobs" if knob else None, layouts.KNOB_ACTIONS)
+        self.picker.set_target(role if knob else "key")
+        if name is None or prof is None or name == "Fn" or knob:
             self.press_label.setVisible(False)
             self.press_effect.setVisible(False)
         if name is None or prof is None:
@@ -293,9 +309,7 @@ class KeysPage(QWidget):
             self.picker.setEnabled(False)
             return
         layer = prof.fn_keys if self.fn else prof.keys
-        label = next((k.get("Show") for k in self.state.display_keys() if k["KeyName"] == name and k.get("Shape")),
-                     None) or name
-        self.key_title.setText(("Fn + " if self.fn else "") + label)
+        self.key_title.setText(("Fn + " if self.fn else "") + (knob["name"] if knob else name))
         if name == "Fn":
             self.key_current.setText("The Fn key itself can't be changed.")
             self.key_default.setText("")
@@ -304,16 +318,27 @@ class KeysPage(QWidget):
             return
         default = self.state.default_binding(self.slot, name, self.fn)
         default_text = b.label(default) if default is not None else "nothing"
-        if name in layer:
+        if knob:
+            self.key_current.setText("Click what to change, then pick its action from the list:")
+            for r, part in knob["parts"].items():
+                d = self.state.default_binding(self.slot, part, self.fn)
+                now = describe(layer[part]) if part in layer else \
+                    f"{b.label(d) if d is not None else 'nothing'} (default)"
+                btn = getattr(self, f"knob_{r}")
+                btn.setText(f"{KNOB_ICONS[r]}  {layouts.KNOB_ROLES[r]}\n      {now}")
+                btn.setChecked(r == knob["role"])
+            self.key_default.setText(f"Default for {role}: {default_text}")
+        elif name in layer:
             self.key_current.setText(f"Now: <b>{describe(layer[name])}</b>")
-            self.picker.show_binding(layer[name])
         else:
             self.key_current.setText(f"Now: <b>{default_text}</b> (default)")
-            self.picker.show_binding(b.name(default) if default is not None else None)
-        self.key_default.setText(f"Default: {default_text}")
+        if not knob:
+            self.key_default.setText(f"Default: {default_text}")
+        self.picker.show_binding(layer[name] if name in layer else b.name(default) if default is not None else None)
+        self.reset_key.setText(f"Reset {role} to default" if knob else "Reset to default")
         self.reset_key.setEnabled(name in layer)
         self.picker.setEnabled(True)
-        show_press = self.state.has_profile_lighting and not self.fn
+        show_press = self.state.has_profile_lighting and not self.fn and not knob
         self.press_label.setVisible(show_press)
         self.press_effect.setVisible(show_press)
         if show_press:
@@ -353,50 +378,10 @@ class KeysPage(QWidget):
             layer[name] = binding
         self.state.save_profiles()
 
-    # --- knob ------------------------------------------------------------------------------------
-    def _fill_knob(self):
-        keys = layouts.knob_keys(self.state.layout)
-        prof = self._profile()
-        present = {k["KeyName"] for k in self.state.keymap}
-        show = bool(keys) and prof is not None and all(n in present for n in keys.values())
-        self.knob_box.setVisible(show)
-        if not show:
-            return
-        self.knob_title.setText("<b>Knob</b>" + (" (with Fn held)" if self.fn else ""))
-        layer = prof.fn_keys if self.fn else prof.keys
-        texts = {b.parse(value): text for value, text in layouts.KNOB_ACTIONS}
-        for role, combo in self.knob_combos.items():
-            name = keys[role]
-            default = self.state.default_binding(self.slot, name, self.fn)
-            current = layer.get(name)
-            combo.blockSignals(True)
-            combo.clear()
-            combo.addItem(f"Default ({texts.get(default) or b.label(default)})" if default is not None else "Default",
-                          "__default__")
-            selected = 0
-            for value, text in layouts.KNOB_ACTIONS:
-                combo.addItem(text, value)
-                if isinstance(current, str) and b.parse(current) == b.parse(value):
-                    selected = combo.count() - 1
-            if current is not None and selected == 0:
-                combo.addItem(describe(current), "__custom__")
-                selected = combo.count() - 1
-            combo.addItem("Other…", "__other__")
-            combo.setCurrentIndex(selected)
-            combo.setToolTip(f"{KNOB_HELP[role]}. “Other…” picks any action from the list below.")
-            combo.blockSignals(False)
-
-    def _knob_chosen(self, role: str):
-        name = layouts.knob_keys(self.state.layout)[role]
-        data = self.knob_combos[role].currentData()
-        if data == "__other__":
-            self._select(name)                          # the full list below, for this knob action
-            self.picker.search.setFocus()
-            self._fill_knob()
-            return
-        if data == "__custom__":
-            return
-        self._set_binding(name, None if data == "__default__" else data)
+    def _knob_part(self, role: str):
+        knob = self._knob(self.selected)
+        if knob and role in knob["parts"]:
+            self._select(knob["parts"][role])
 
     def _press_effect_changed(self):
         prof = self._profile()

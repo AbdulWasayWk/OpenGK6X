@@ -130,7 +130,7 @@ def new_guid() -> str:
 
 def _leds(keymap: list[dict], leds=None) -> list[dict]:
     """Keys with a real LED (LocationCode < 176; not knobs), optionally only the given LEDs."""
-    keys = [k for k in keymap if 0 <= k["LocationCode"] < LED_COUNT and k.get("Shape") != "round"]
+    keys = [k for k in keymap if 0 <= k["LocationCode"] < LED_COUNT and k.get("Shape") != "knob"]
     return [k for k in keys if leds is None or k["LocationCode"] in leds]
 
 

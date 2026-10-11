@@ -17,9 +17,8 @@ Bluetooth.
   - media keys, browser keys, calculator, mouse buttons, sleep
   - lighting controls (brightness, effect speed, on/off)
   - **switch profile** keys
-- **The knob** (GK104 Pro): separate choices for turning it left, turning it right and pressing it, with and
-  without Fn, right above the keyboard picture (volume, media, brightness, zoom, scrolling, tabs, undo/redo, or
-  anything else from the list).
+- **Knobs**: drawn as a knob showing what turn left, turn right and press do; click it to set each of the three
+  (normal and with Fn), with the usual knob actions suggested first (volume, media, brightness, zoom, tabs, …).
   - **macros**, run N times, while held, or until pressed again
 - **Macros**: record what you type (with the pauses), or build them step by step (key press/release/tap, waits,
   mouse clicks); a compact text form (`+ctrl c -ctrl 100ms enter`) for quick edits.

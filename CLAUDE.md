@@ -119,7 +119,7 @@ The app is **done** when every item below is checked. Keep this list current.
       installed for the user); PKGBUILD verified from a fresh GitHub clone (46 tests, package contents);
       udev rule installed; GitHub: github.com/AbdulWasayWk/OpenGK6X (pushed)
 - [x] Knob options (user request 2026-10-12, as in the official app): turn left / turn right / press as separate
-      choices on the Keys page (Knob row above the picture; normal and Fn layer), CLI `knob-left/-right/-press`
+      parts of one knob in the picture + editor panel (normal and Fn layer), CLI `knob-left/-right/-press`
 - [x] Wireless: profiles 1–3 aren't used over 2.4 GHz; **the Standard profile is** and its keys are now editable
       (keys only: macros/Fn layer refused). Custom effects carry over. Configuration needs the cable.
 
@@ -267,9 +267,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
   form the keyboard itself uses. (source: OpenRGB SkyloongGK104ProController.cpp)
 
 ## Decision log
-- 2026-10-12: **Knob row on the Keys page** (`Layout.knob` maps left/right/press → key-map names; shown only for
-  layouts with a knob). Each direction is a drop-down of common knob actions (`layouts.KNOB_ACTIONS`) + "Default" +
-  "Other…" (selects that knob key so the full action list is used). Same data as clicking the knob keys in the picture.
+- 2026-10-12: **Knobs are one control** (user: the first try, a row of 3 drop-downs over the picture, was confusing).
+  `layouts.Knob` (left/right/press key-map names); `Layout.knobs`, or `template_knobs` (the "all" layout: every
+  VOLU/VOLD/MUTE variant triple, `find_knobs`). The picture draws a knob (dial = press, sides = turns, each showing
+  its action); selecting it shows a 3-part panel in the editor; the list assigns to the chosen part, knob actions
+  suggested first (`KNOB_ACTIONS`). Knob parts in `display_keys` have `Shape: "knob"` (no LED).
 <!-- Newest first. Format: YYYY-MM-DD: decision; reason -->
 - 2026-10-11: **Standard profile editable (keys only)**, first tab in the GUI, `bind standard …` in the CLI; profiles
   1–3 say they're cable-only on the GK104 Pro (`Layout.wireless_standard_only`). Reason: the user wants remaps on

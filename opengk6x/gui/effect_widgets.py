@@ -54,12 +54,12 @@ class EffectPreview(QWidget):
         self.set_keys(list(keys), screen)
 
     def set_keys(self, keys: list[dict], screen: dict | None = None):
-        """Keys as drawn (layouts.display_keys); knobs (round) have no LED and stay unlit."""
+        """Keys as drawn (layouts.display_keys); knobs have no LED and stay unlit."""
         self.keymap = keys
         self.view.set_keys(keys, screen)
         self._by_led = {k["LocationCode"]: k["KeyName"] for k in keys
-                        if 0 <= k["LocationCode"] < fx.LED_COUNT and k.get("Shape") != "round"}
-        self.view.set_looks({k["KeyName"]: KeyLook(k.get("Show", "") if k.get("Shape") else "") for k in keys})
+                        if 0 <= k["LocationCode"] < fx.LED_COUNT and k.get("Shape") != "knob"}
+        self.view.set_looks({k["KeyName"]: KeyLook("") for k in keys})
 
     def play(self, effect: dict | None, speed: float = 1.0):
         self.player = fx.Player(effect) if effect else None
@@ -79,9 +79,7 @@ class EffectPreview(QWidget):
         leds = self.player.step()
         colors = {name: QColor(*leds.get(led, (0, 0, 0))) for led, name in self._by_led.items()}
         self.view.set_colors(colors)
-        looks = {k["KeyName"]: KeyLook(k.get("Show", "")) for k in self.keymap if k.get("Shape")}
-        looks.update({name: KeyLook("●" if led in self.marked else "") for led, name in self._by_led.items()})
-        self.view.set_looks(looks)
+        self.view.set_looks({name: KeyLook("●" if led in self.marked else "") for led, name in self._by_led.items()})
 
     def _clicked(self, name: str):
         led = next((k["LocationCode"] for k in self.keymap if k["KeyName"] == name), -1)
@@ -101,7 +99,7 @@ class EffectEditor(QDialog):
         self.guid = (effect or {}).get("GUID")
         self.result_effect: dict | None = None
         leds_all = sorted(k["LocationCode"] for k in keymap if 0 <= k["LocationCode"] < fx.LED_COUNT
-                          and k.get("Shape") != "round")
+                          and k.get("Shape") != "knob")
         self.selection = set(params.get("leds") or leds_all)
         self.colors: dict[str, str] = dict(params.get("colors") or {})
 
