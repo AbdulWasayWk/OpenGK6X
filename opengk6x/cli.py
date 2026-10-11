@@ -104,6 +104,14 @@ def cmd_actions(args):
 
 
 def cmd_mode(args):
+    if args.via == "receiver":
+        found = [f for f in device.find() if f.pid == p.PID_DONGLE]
+        if not found:
+            raise Abort("the 2.4 GHz receiver isn't plugged in")
+        with device.Keyboard(found[0]) as kb:
+            reply = kb.set_mode(MODES[args.slot])
+        print(f"sent through the receiver; the keyboard answered {reply[:3].hex(' ')}")
+        return
     with wired_keyboard() as kb:
         kb.set_mode(MODES[args.slot])
     print(f"switched to {'the standard profile' if args.slot == 'standard' else 'profile ' + args.slot}")
@@ -505,6 +513,8 @@ def main(argv=None):
     c.add_argument("search", nargs="*")
     c = command(sub, "mode", cmd_mode, "switch to the standard profile or profile 1-3")
     c.add_argument("slot", choices=list(MODES))
+    c.add_argument("--via", choices=["cable", "receiver"], default="cable",
+                   help="receiver: send it through the 2.4 GHz receiver (experimental)")
 
     c = command(sub, "bind", cmd_bind, "change what a key does in profile 1-3 (saved, then written)")
     c.add_argument("slot", choices=list(SLOT_MODES))
