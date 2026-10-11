@@ -21,6 +21,9 @@ Bluetooth.
 - **Lighting**: the official effect library with a live animated preview, your own effects (one color, paint the
   keys, breathing, color cycle, rainbow wave in any direction, sweeping band), and the **custom effects list** the
   keyboard cycles with **Fn + −**.
+- **Live mode** (while OpenGK6X runs, also from the tray): lighting effects at full speed, **typing effects**
+  (pressed keys glow, or a ripple spreads from each key), and **key actions** only the PC can do: run a command,
+  open a URL or folder, type a text snippet, play a macro of any length. Optionally starts at login.
 - **Import and export**: profiles (`.gpr`/`.cmf`), macros (`.cms`) and effects (`.le`) from and for the official app,
   or its whole data folder; plus one-file OpenGK6X backups.
 - A command line (`opengk6x`) for all of it.
@@ -67,6 +70,9 @@ connection). Open **OpenGK6X** from the app menu.
   custom list and press **Write to keyboard**. The first time, this replaces the custom effects the keyboard came
   with or the official app wrote. On the keyboard: **Fn + =** built-in effects, **Fn + −** your custom effects,
   **Fn + ↑/↓** brightness, **Fn + ←/→** speed. The keyboard plays effects more slowly than the preview.
+- **Live mode**: pick an effect, a typing effect and key actions, then **Start live mode**. Closing the window
+  keeps it running in the tray; quitting, or applying/switching a profile, ends it and puts the keyboard back on
+  the profile you chose.
 - **Keyboard**: connection and firmware, switching profiles, backups, official app files, the keyboard's own
   shortcuts.
 
@@ -85,6 +91,7 @@ opengk6x unbind 2 "Caps Lock" | profile list | profile show 2 | profile apply 2 
 opengk6x macro set greet "+shift h -shift i 50ms enter" | macro list | macro delete greet
 opengk6x effects [search] | lighting show | lighting set "Rainbow Waves" Flame | lighting apply
 opengk6x mode standard|1|2|3                    # switch the keyboard's profile
+opengk6x live run                               # live mode with the Live page's settings (Ctrl+C ends it)
 opengk6x export backup.json | import backup.json
 opengk6x import ~/old-windows/GK6XPlus-CMS      # the official app's data folder (or .gpr/.cmf/.cms/.le files)
 opengk6x export --official folder/              # files the official app can import
@@ -105,7 +112,6 @@ opengk6x export --official folder/              # files the official app can imp
 - Physical layout: Keyboard page → *Physical layout* (the GK104 Pro by default; a full-size 104-key option for other
   keyboards of the same model).
 - The keyboard can't report what's stored in it.
-- Online mode (lighting and key actions run by the PC while the app is open) isn't there yet.
 
 ## Development
 

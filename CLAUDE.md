@@ -132,7 +132,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Lighting: custom effects list (standard profile `DriverLE`, mode 1, no `0B`), effect player/preview, editor
 - [x] Custom list written on hardware by the user from the GUI (3 library effects): works, Fn+− cycles them;
       effects run much slower on the keyboard than the 50 ms-tick preview (accepted by the user)
-- [ ] Online mode (`0B 05`, ping, `1A` live lighting, `15 04` key reports)
+- [x] Online mode core (`online.py`) verified on hardware: typing works, key reports, frames ~17 ms
+- [x] Live mode (`live.py` + GUI Live page + tray + `--tray` autostart + CLI `live run`): effect at full speed,
+      typing effects (glow / ripple), key actions (command / URL / text / macro via `15 02`), exit profile;
+      start/stop verified through the GUI controller on hardware
+- [ ] User test of live mode: action keys not typing, text/macros typed via `15 02`, typing effects, tray
 
 ### Phase 3: App
 - [x] CLI (`info keys actions mode bind unbind profile macro export import setup-data`)

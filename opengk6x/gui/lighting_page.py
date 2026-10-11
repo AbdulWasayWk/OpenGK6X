@@ -298,6 +298,10 @@ class LightingPage(QWidget):
         state, guids = self.state, list(self.custom)
         self.busy = True
         self._update_status()
+        state.stop_live(lambda: self._write(guids))
+
+    def _write(self, guids: list[str]):
+        state = self.state
 
         def done(r):
             self.busy = False

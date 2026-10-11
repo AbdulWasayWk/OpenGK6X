@@ -354,6 +354,75 @@ def cmd_live_test(args):
     print("Back on the standard profile.")
 
 
+def cmd_live_run(args):
+    """Live mode without the GUI, with the settings from the Live page (~/.config/opengk6x/<model>/live.json)."""
+    import json
+    import signal
+    import subprocess
+    import time
+    from . import live as lv
+    from .layouts import display_keys
+    from .online import Online
+    store, vendor = Store(), VendorData()
+    with wired_keyboard() as kb:
+        model = kb.model_id()
+        cfg = lv.LiveConfig.load(store.root, model)
+        keys = display_keys(vendor.keymap(model), store.layout(model))
+        mine = store.effects()
+        effect = mine.get(cfg.effect) if cfg.effect in mine else \
+            (json.loads(vendor.effect(cfg.effect) or "null") if cfg.effect else None)
+        renderer = lv.Renderer(keys, effect, cfg)
+        actions = {k["LogicCode"]: cfg.actions[k["KeyName"]] for k in vendor.keymap(model) if k["KeyName"] in cfg.actions}
+        live = Online(kb, vendor.base_profile(model))
+        pending = []
+
+        def on_keys(down, _up):
+            for i in down:
+                renderer.press(i)
+                if i in actions:
+                    pending.append(actions[i])
+        live.on_keys = on_keys
+        stop = []
+        live.on_mode = lambda m: stop.append(m) if m != p.MODE_ONLINE else None
+
+        def interrupt(*_):
+            raise KeyboardInterrupt
+        for sig in (signal.SIGHUP, signal.SIGTERM):
+            signal.signal(sig, interrupt)
+        print("Live mode on; Ctrl+C stops." + (f" Key actions: {len(actions)}." if actions else ""))
+        try:
+            live.start(set(actions))
+            while not stop:
+                t = time.monotonic()
+                live.show(renderer.frame())
+                while pending:
+                    a = pending.pop(0)
+                    if a.get("type") == "command":
+                        subprocess.Popen(["sh", "-c", a.get("value", "")], start_new_session=True)
+                    elif a.get("type") == "url":
+                        subprocess.Popen(["xdg-open", a.get("value", "")], start_new_session=True)
+                    elif a.get("type") in ("text", "macro"):
+                        events = [("keys", s) for s in lv.text_states(a.get("value", ""))] if a["type"] == "text" \
+                            else lv.macro_states(store.macros()[a["value"]].steps) if a["value"] in store.macros() else []
+                        for kind, value in events + [("keys", (0, [])), ("mouse", 0)]:
+                            if kind == "wait":
+                                time.sleep(value / 1000)
+                            elif kind == "keys":
+                                live.send_keys(*value)
+                            else:
+                                live.send_mouse(value)
+                time.sleep(max(0.0, 0.05 - (time.monotonic() - t)))
+        except (KeyboardInterrupt, OSError):
+            pass
+        finally:
+            if stop:
+                live.active = False
+                print("The keyboard switched profile; live mode ended.")
+            else:
+                live.stop(lv.EXIT_MODES.get(cfg.exit, p.MODE_STANDARD))
+                print("Live mode off.")
+
+
 # --- setup ------------------------------------------------------------------------------------
 
 def cmd_setup_data(args):
@@ -481,6 +550,7 @@ def main(argv=None):
         dest="action", required=True)
     c = command(live, "test", cmd_live_test, "short test: live lighting + key reports, then back to standard")
     c.add_argument("--seconds", type=int, default=20)
+    command(live, "run", cmd_live_run, "run live mode with the Live page's settings until Ctrl+C")
 
     mac = command(sub, "macro", None, "macro library").add_subparsers(dest="action", required=True)
     command(mac, "list", cmd_macro_list, "all macros")

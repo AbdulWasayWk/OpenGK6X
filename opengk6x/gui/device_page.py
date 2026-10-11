@@ -140,9 +140,9 @@ class DevicePage(QWidget):
             return []
 
     def _switch(self, mode: int, text: str):
-        self.state.keyboard.run(lambda kb: kb.set_mode(mode),
-                                lambda _r: self.state.message.emit(f"The keyboard is now on: {text}"),
-                                lambda e: error(self, str(e)))
+        self.state.stop_live(lambda: self.state.keyboard.run(
+            lambda kb: kb.set_mode(mode), lambda _r: self.state.message.emit(f"The keyboard is now on: {text}"),
+            lambda e: error(self, str(e))))
 
     def _backup(self):
         path, _ = QFileDialog.getSaveFileName(self, "Save backup", str(Path.home() / "opengk6x-backup.json"),

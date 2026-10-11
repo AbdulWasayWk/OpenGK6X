@@ -21,11 +21,15 @@ class Online:
         self.base = base_profile
         self.held: set[int] = set()
         self.on_keys = None             # callback(pressed: set, released: set)
+        self.on_mode = None             # callback(mode) when the keyboard reports a profile change
         self._last_ping = 0.0
         self.active = False
         kb.on_report = self._report
 
     def _report(self, r: bytes):
+        if r[0] == p.OP_SET_MODE and self.on_mode:
+            self.on_mode(r[1])
+            return
         held = p.parse_key_report(r)
         if held is None:
             return
@@ -34,7 +38,9 @@ class Online:
         if self.on_keys and (pressed or released):
             self.on_keys(pressed, released)
 
-    def start(self):
+    def start(self, action_keys: set[int] = frozenset()):
+        """Enter online mode. Keys in `action_keys` (matrix indexes) don't type; the PC acts on them."""
+        from .live import driver_key_value
         kb = self.kb
         kb.request(p.ping(), match_sub=False, check_crc=False)
         kb.set_mode(p.MODE_ONLINE)
@@ -42,7 +48,11 @@ class Online:
         kb.request(p.ping(), match_sub=False, check_crc=False)
         kb.request(p.key_reports(True), match_sub=False, check_crc=False)
         cols, rows = kb.matrix()
-        table = pr.key_table(self.base.get("KeySet") or [], cols * rows * 4, lambda i, k: 0xFF, fill=0)
+        table = bytearray(pr.key_table(self.base.get("KeySet") or [], cols * rows * 4, lambda i, k: 0xFF, fill=0))
+        for i in action_keys:
+            if 0 <= i < cols * rows:
+                table[i * 4:i * 4 + 4] = driver_key_value(i).to_bytes(4, "little")
+        table = bytes(table)
         light_index = b"\xff" * (cols * rows)
         kb.write(p.chunks(p.OP_DRIVER_KEYS, 0x01, table) + p.chunks(p.OP_DRIVER_KEYS, 0x03, light_index) +
                  [p.driver_le_config()])
@@ -52,6 +62,15 @@ class Online:
         """Show one lighting frame (LED index → RGB)."""
         self.kb.write(p.live_frame(colors))
         self.tick()
+
+    def send_keys(self, mods: int, keys: list[int]):
+        """Make the keyboard send this key state to the computer (`15 02`)."""
+        from .live import key_state_packet
+        self.kb.request(key_state_packet(mods, keys), match_sub=False, check_crc=False)
+
+    def send_mouse(self, buttons: int):
+        from .live import mouse_packet
+        self.kb.request(mouse_packet(buttons), match_sub=False, check_crc=False)
 
     def tick(self):
         """Keep the keyboard online and collect key reports; call often."""

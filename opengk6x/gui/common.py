@@ -122,6 +122,7 @@ class AppState(QObject):
         except VendorDataMissing:
             self.vendor = None
         self.keyboard = Keyboard()
+        self.live = None                       # the LiveController (live_page.py), set by the main window
         self.model: int | None = None
         self.keymap: list[dict] = []
         self.config: dict = {}
@@ -176,6 +177,13 @@ class AppState(QObject):
             return session.status(self.store, self.vendor, self.model, slot, self.profiles[slot], self.matrix)
         except ValueError:
             return session.CHANGED                 # e.g. a macro it uses was deleted: needs attention anyway
+
+    def stop_live(self, then):
+        """Leave live mode first (profile writes and switches take the keyboard out of it anyway), then `then`."""
+        if self.live is not None and self.live.running:
+            self.live.stop(then=then)
+        else:
+            then()
 
     # physical layout
     @property

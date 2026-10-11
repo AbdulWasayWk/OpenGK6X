@@ -329,6 +329,10 @@ class KeysPage(QWidget):
         slot, state = self.slot, self.state
         self.busy = True
         self.refresh()
+        state.stop_live(lambda: self._write(slot))
+
+    def _write(self, slot: str):
+        state = self.state
 
         def job(kb):
             return session.write_profile(kb, state.store, state.vendor, state.model, slot, state.profiles)
@@ -349,6 +353,6 @@ class KeysPage(QWidget):
 
     def _activate(self):
         slot = self.slot
-        self.state.keyboard.run(lambda kb: kb.set_mode(SLOT_MODES[slot]),
+        self.state.stop_live(lambda: self.state.keyboard.run(lambda kb: kb.set_mode(SLOT_MODES[slot]),
                                 lambda _r: self.state.message.emit(f"The keyboard is now on profile {slot}"),
-                                lambda e: error(self, str(e)))
+                                lambda e: error(self, str(e))))

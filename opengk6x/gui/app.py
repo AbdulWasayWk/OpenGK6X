@@ -3,14 +3,15 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QSize
-from PySide6.QtGui import QIcon
-from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMainWindow,
-                               QStackedWidget, QVBoxLayout, QWidget)
+from PySide6.QtGui import QAction, QIcon
+from PySide6.QtWidgets import (QApplication, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QMainWindow, QMenu,
+                               QStackedWidget, QSystemTrayIcon, QVBoxLayout, QWidget)
 
 from .common import AppState, heading, hint
 from .device_page import DevicePage
 from .keys_page import KeysPage
 from .lighting_page import LightingPage
+from .live_page import LiveController, LivePage
 from .macros_page import MacrosPage
 
 
@@ -30,9 +31,14 @@ class MissingDataPage(QWidget):
         lay.addStretch(2)
 
 
+def app_icon() -> QIcon:
+    return QIcon.fromTheme("opengk6x", QIcon(str(Path(__file__).with_name("opengk6x.svg"))))
+
+
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, tray_start: bool = False):
         super().__init__()
+        self._quitting = False
         self.setWindowTitle("OpenGK6X")
         self.resize(1280, 860)
         self.state = AppState()
@@ -42,10 +48,14 @@ class MainWindow(QMainWindow):
         self.state.keyboard.connected.connect(self._connection)
         self._connection(None)
 
+        self.live = None
         if self.state.vendor is None:
             pages = [MissingDataPage()]
         else:
-            pages = [KeysPage(self.state), MacrosPage(self.state), LightingPage(self.state), DevicePage(self.state)]
+            self.live = LiveController(self.state)
+            self.state.live = self.live
+            pages = [KeysPage(self.state), MacrosPage(self.state), LightingPage(self.state),
+                     LivePage(self.state, self.live), DevicePage(self.state)]
         self.nav = QListWidget()
         self.nav.setIconSize(QSize(22, 22))
         self.nav.setFixedWidth(180)
@@ -60,24 +70,81 @@ class MainWindow(QMainWindow):
         lay.addWidget(self.stack, 1)
         self.setCentralWidget(central)
         self.nav.setCurrentRow(0)
+        self._make_tray()
+        if tray_start and self.live:
+            # started at login: turn live mode on as soon as the keyboard is there
+            def first(info):
+                if info and not self.live.running:
+                    self.state.keyboard.connected.disconnect(first)
+                    self.live.start()
+            self.state.keyboard.connected.connect(first)
+
+    def _make_tray(self):
+        self.tray = None
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            return
+        self.tray = QSystemTrayIcon(app_icon(), self)
+        self.tray.setToolTip("OpenGK6X")
+        menu = QMenu()
+        self.tray_live = QAction("Live mode", menu, checkable=True)
+        self.tray_live.triggered.connect(lambda on: self.live.start() if on else self.live.stop())
+        if self.live:
+            menu.addAction(self.tray_live)
+            self.live.changed.connect(self._live_changed)
+        menu.addAction("Open OpenGK6X", self._show)
+        menu.addSeparator()
+        menu.addAction("Quit", self.quit)
+        self.tray.setContextMenu(menu)
+        self.tray.activated.connect(lambda reason: self._show() if reason == QSystemTrayIcon.Trigger else None)
+        self.tray.show()
+        self._live_changed()
+
+    def _live_changed(self):
+        on = bool(self.live and self.live.running)
+        self.tray_live.setChecked(on)
+        if self.tray:
+            self.tray.setToolTip("OpenGK6X — live mode on" if on else "OpenGK6X")
+
+    def _show(self):
+        self.show()
+        self.raise_()
+        self.activateWindow()
 
     def _connection(self, info):
         self.conn.setText("● Keyboard connected" if info else "○ Keyboard not connected")
+
+    def quit(self):
+        self._quitting = True
+        self.close()
 
     def closeEvent(self, e):
         for i in range(self.stack.count()):
             page = self.stack.widget(i)
             if hasattr(page, "_save"):
                 page._save()
+        if not self._quitting and self.tray and self.live and self.live.running:
+            self.hide()                    # live mode keeps running in the tray
+            self.tray.showMessage("OpenGK6X", "Live mode keeps running here. Quit from this icon's menu.",
+                                  app_icon(), 4000)
+            e.ignore()
+            return
+        if self.live:
+            self.live.stop_blocking()
         self.state.keyboard.shutdown()
+        if self.tray:
+            self.tray.hide()
         super().closeEvent(e)
+        QApplication.quit()
 
 
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName("OpenGK6X")
     app.setDesktopFileName("opengk6x")
-    app.setWindowIcon(QIcon.fromTheme("opengk6x", QIcon(str(Path(__file__).with_name("opengk6x.svg")))))
-    w = MainWindow()
-    w.show()
+    app.setWindowIcon(app_icon())
+    app.setQuitOnLastWindowClosed(False)
+    tray = "--tray" in sys.argv[1:]
+    w = MainWindow(tray_start=tray)
+    if not tray or not w.tray:
+        w.show()
     sys.exit(app.exec())
